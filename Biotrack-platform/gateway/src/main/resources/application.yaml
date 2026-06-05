@@ -1,0 +1,109 @@
+server:
+  port: 8778
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      routes:
+        # IAM Service Routes (Authentication & User Management)
+        - id: iam-auth
+          uri: lb://iam-service
+          predicates:
+            - Path=/auth/**,/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+
+        - id: iam-users
+          uri: lb://iam-service
+          predicates:
+            - Path=/users/**,/api/v1/users/**,/api/v1/roles
+          filters:
+            - StripPrefix=0
+
+        # Patient Service Routes (Patient & Site Management)
+        - id: patient-service
+          uri: lb://patient-service
+          predicates:
+            - Path=/api/v1/patients/**
+          filters:
+            - StripPrefix=0
+
+        - id: visit-service
+          uri: lb://patient-service
+          predicates:
+            - Path=/api/v1/visits/**
+          filters:
+            - StripPrefix=0
+
+        # Sample Service Routes (Sample & Lab Results)
+        - id: sample-service
+          uri: lb://sample-service
+          predicates:
+            - Path=/api/v1/samples/**
+          filters:
+            - StripPrefix=0
+
+        - id: lab-result-service
+          uri: lb://sample-service
+          predicates:
+            - Path=/api/v1/lab-results/**
+          filters:
+            - StripPrefix=0
+
+        # Protocol Service Routes
+        - id: protocol-service
+          uri: lb://protocol-service
+          predicates:
+            - Path=/api/v1/protocols/**
+          filters:
+            - StripPrefix=0
+
+        - id: site-service
+          uri: lb://protocol-service
+          predicates:
+            - Path=/api/v1/sites/**
+          filters:
+            - StripPrefix=0
+
+        # Notifications Service Routes
+        - id: notifications-service
+          uri: lb://notifications-service
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - StripPrefix=0
+
+        # Compliance Service Routes
+        - id: compliance-service
+          uri: lb://compliance-service
+          predicates:
+            - Path=/api/v1/audit-logs/**,/api/v1/compliance-reports/**
+          filters:
+            - StripPrefix=0
+
+        # Analytics Service Routes
+        - id: analytics-service
+          uri: lb://analytics-service
+          predicates:
+            - Path=/api/v1/analytics/**
+          filters:
+            - StripPrefix=0
+
+      # Default filter for all routes
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+    hostname: localhost
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.security: DEBUG

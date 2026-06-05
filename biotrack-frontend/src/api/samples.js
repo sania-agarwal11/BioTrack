@@ -1,0 +1,16 @@
+import api from './axios'
+
+export const getSamples = () => api.get('/samples')
+export const getSampleById = (id) => api.get(`/samples/${id}`)
+export const createSample = (data) => api.post('/samples', data)
+export const updateSample = (id, data) => api.put(`/samples/${id}`, data)
+export const deleteSample = (id) => api.delete(`/samples/${id}`)
+export const updateSampleStatus = (id, status) => api.put(`/samples/${id}/status?status=${status}`)
+export const disposeSample = (id) => api.put(`/samples/${id}/dispose`)
+export const getSamplesByProtocol = (protocolId) => api.get(`/samples/protocol/${protocolId}`)
+export const getSamplesByPatient = (patientId) => api.get(`/samples/patient/${patientId}`)
+export const getLabResults = (id) => api.get(`/samples/${id}/results`)
+export const uploadLabResults = (id, data) => api.post(`/samples/${id}/results/upload`, data)
+export const getSampleStatusHistory = (id) => api.get(`/samples/${id}/status-history`)
+export const getDeletedSamples = () => api.get('/samples/deleted')
+export const restoreSample = (id) => api.put(`/samples/${id}/restore`)

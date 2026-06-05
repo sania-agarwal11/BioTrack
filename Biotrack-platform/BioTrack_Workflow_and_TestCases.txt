@@ -1,0 +1,1374 @@
+================================================================================
+  BIOTRACK PLATFORM — COMPLETE WORKFLOW & SWAGGER TEST CASES
+================================================================================
+  Clinical Research & Laboratory Information Platform (GxP/HIPAA Aligned)
+  Version: 1.0  |  Stack: Spring Boot 3.3.5 + Spring Cloud 2023.0.3 + MySQL
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 1 — ARCHITECTURE OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  SERVICE               PORT    SWAGGER UI                        DATABASE
+  ─────────────────── ────── ──────────────────────────────── ────────────────────
+  Eureka Server         8761    (no Swagger — registry UI)        –
+  API Gateway           8080    (routes to all services)          –
+  IAM Service           8081    http://localhost:8081/swagger-ui.html  biotrack_iam
+  Patient Service       8082    http://localhost:8082/swagger-ui.html  biotrack_patients
+  Sample Service        8083    http://localhost:8083/swagger-ui.html  biotrack_samples
+  Notifications Svc     8084    http://localhost:8084/swagger-ui.html  biotrack_notifications
+  Compliance Service    8085    http://localhost:8085/swagger-ui.html  biotrack_compliance
+  Protocol Service      8086    http://localhost:8086/swagger-ui.html  biotrack_protocol
+  Analytics Service     8087    http://localhost:8087/swagger-ui.html  biotrack_analytics
+
+  ROLES IN THE SYSTEM
+  ───────────────────
+  ADMIN                 — Full access to everything
+  CLINICAL_TRIAL_MANAGER — Manages protocols, sites, patients, visits, notifications
+  LAB_TECHNICIAN        — Creates/manages samples and lab results
+  REGULATORY_OFFICER    — Views compliance reports and audit logs
+  DATA_MANAGER          — Views audit logs and creates KPI reports
+  RESEARCH_SCIENTIST    — Read-only access to compliance reports
+
+  SECURITY MODEL
+  ─────────────
+  All endpoints except /api/v1/auth/** require a JWT Bearer token.
+  Each service independently validates the token using the shared secret.
+  Tokens are obtained from IAM Service /api/v1/auth/login.
+  In Swagger: click the "Authorize" button → enter:  Bearer <your-jwt-token>
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 2 — APPLICATION WORKFLOW NARRATIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PHASE 1 — IDENTITY & ACCESS MANAGEMENT (IAM Service)
+  ─────────────────────────────────────────────────────
+  The Admin first registers all platform users with appropriate roles.
+  Each user logs in and receives a JWT token used for all subsequent calls.
+  All mutations (create/update/delete users) are restricted to ADMIN role.
+
+  PHASE 2 — CLINICAL TRIAL SETUP (Protocol Service)
+  ──────────────────────────────────────────────────
+  The Clinical Trial Manager creates a Protocol that defines the study.
+  A Protocol has a title, phase (PHASE_I to PHASE_IV), start/end dates.
+  Sites (clinical locations) are created and linked to the protocol.
+  A Site has an investigator, a location, and a status (ACTIVE/INACTIVE).
+
+  PHASE 3 — PATIENT ENROLLMENT (Patient Service)
+  ───────────────────────────────────────────────
+  The Clinical Trial Manager enrolls Patients into the study.
+  A Patient is linked to a Protocol and a Site.
+  Visits are scheduled for each patient — each visit records the date,
+  status, site, protocol, and notes from the clinical encounter.
+
+  PHASE 4 — SAMPLE COLLECTION & LAB ANALYSIS (Sample Service)
+  ─────────────────────────────────────────────────────────────
+  The Lab Technician collects and registers Samples (linked to patient/site/protocol).
+  For each Sample, a Lab Result is recorded with test type, result value, and status.
+  This represents the core data collection phase of the clinical trial.
+
+  PHASE 5 — NOTIFICATIONS (Notifications Service)
+  ────────────────────────────────────────────────
+  The system sends EMAIL, SMS, or SYSTEM notifications to relevant users.
+  EMAIL notifications trigger actual email delivery via Gmail SMTP.
+  Notifications track read/unread status per user.
+
+  PHASE 6 — ANALYTICS & KPI REPORTING (Analytics Service)
+  ─────────────────────────────────────────────────────────
+  The Data Manager creates KPI Reports for different tracking scopes:
+  ENROLLMENT_RATE, SAMPLE_PROCESSING_RATE, or COMPLIANCE_SCORE.
+  Reports capture metrics and a generated date for trend analysis.
+
+  PHASE 7 — COMPLIANCE & AUDIT (Compliance Service)
+  ──────────────────────────────────────────────────
+  Every CREATE/UPDATE/DELETE across all services auto-generates an Audit Log
+  entry in the Compliance Service via fire-and-forget OpenFeign calls.
+  The Regulatory Officer reviews Audit Logs and Compliance Reports.
+  Compliance Reports are manually created to summarise audit findings.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 3 — HOW TO USE SWAGGER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Start all services (Eureka first, then Gateway, then individual services).
+  2. Open the Swagger URL for the service you want to test.
+  3. Run the login step first to get your JWT token.
+  4. Click the green "Authorize" button at the top right of Swagger UI.
+  5. In the "bearerAuth" field enter:  Bearer eyJhbGci...  (your full JWT token)
+  6. Click "Authorize" then "Close".
+  7. Now all secured endpoints will automatically include your token.
+  8. Follow the test steps below in ORDER — later steps depend on IDs
+     returned by earlier steps (e.g., patientId, protocolId, siteId).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 4 — STEP-BY-STEP SWAGGER TEST CASES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  NOTATION:
+    [SERVICE]  = open that service's Swagger URL
+    METHOD URL = the endpoint to expand and click "Try it out"
+    AUTH       = which role's token to paste in Authorize
+    BODY       = JSON to paste in the request body
+    EXPECTED   = predicted HTTP status and response shape
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PHASE 1 — IAM SERVICE  (http://localhost:8081/swagger-ui.html)
+════════════════════════════════════════════════════════════════════════════════
+
+───────────────────────────────────────────────────────────────
+  STEP 1 — Register the Admin User
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Register User
+  METHOD   : POST
+  URL      : http://localhost:8081/api/v1/auth/register
+  AUTH     : None (public endpoint)
+  BODY     :
+    {
+      "name": "System Admin",
+      "email": "admin@biotrack.com",
+      "phone": "9000000001",
+      "role": "ADMIN",
+      "status": "ACTIVE",
+      "password": "Admin@1234"
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "userId": 1,
+      "name": "System Admin",
+      "email": "admin@biotrack.com",
+      "phone": "9000000001",
+      "role": "ADMIN",
+      "status": "ACTIVE"
+    }
+
+───────────────────────────────────────────────────────────────
+  STEP 2 — Register Clinical Trial Manager
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Register User
+  METHOD   : POST
+  URL      : http://localhost:8081/api/v1/auth/register
+  AUTH     : None
+  BODY     :
+    {
+      "name": "Dr. Sarah Mitchell",
+      "email": "ctm@biotrack.com",
+      "phone": "9000000002",
+      "role": "CLINICAL_TRIAL_MANAGER",
+      "status": "ACTIVE",
+      "password": "Ctm@1234"
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "userId": 2,
+      "name": "Dr. Sarah Mitchell",
+      "email": "ctm@biotrack.com",
+      "role": "CLINICAL_TRIAL_MANAGER",
+      "status": "ACTIVE"
+    }
+
+───────────────────────────────────────────────────────────────
+  STEP 3 — Register Lab Technician
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Register User
+  METHOD   : POST
+  URL      : http://localhost:8081/api/v1/auth/register
+  AUTH     : None
+  BODY     :
+    {
+      "name": "John Lab",
+      "email": "labtech@biotrack.com",
+      "phone": "9000000003",
+      "role": "LAB_TECHNICIAN",
+      "status": "ACTIVE",
+      "password": "Lab@1234"
+    }
+  EXPECTED :
+    HTTP 201 Created  |  userId: 3
+
+───────────────────────────────────────────────────────────────
+  STEP 4 — Register Regulatory Officer
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Register User
+  METHOD   : POST
+  URL      : http://localhost:8081/api/v1/auth/register
+  AUTH     : None
+  BODY     :
+    {
+      "name": "Alice Compliance",
+      "email": "regulatory@biotrack.com",
+      "phone": "9000000004",
+      "role": "REGULATORY_OFFICER",
+      "status": "ACTIVE",
+      "password": "Reg@1234"
+    }
+  EXPECTED :
+    HTTP 201 Created  |  userId: 4
+
+───────────────────────────────────────────────────────────────
+  STEP 5 — Register Data Manager
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Register User
+  METHOD   : POST
+  URL      : http://localhost:8081/api/v1/auth/register
+  AUTH     : None
+  BODY     :
+    {
+      "name": "Bob Analytics",
+      "email": "datamanager@biotrack.com",
+      "phone": "9000000005",
+      "role": "DATA_MANAGER",
+      "status": "ACTIVE",
+      "password": "Data@1234"
+    }
+  EXPECTED :
+    HTTP 201 Created  |  userId: 5
+
+───────────────────────────────────────────────────────────────
+  STEP 6 — Register Research Scientist
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Register User
+  METHOD   : POST
+  URL      : http://localhost:8081/api/v1/auth/register
+  AUTH     : None
+  BODY     :
+    {
+      "name": "Dr. Eve Researcher",
+      "email": "scientist@biotrack.com",
+      "phone": "9000000006",
+      "role": "RESEARCH_SCIENTIST",
+      "status": "ACTIVE",
+      "password": "Sci@1234"
+    }
+  EXPECTED :
+    HTTP 201 Created  |  userId: 6
+
+───────────────────────────────────────────────────────────────
+  STEP 7 — Login as Admin  ★ SAVE THE TOKEN ★
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Login
+  METHOD   : POST
+  URL      : http://localhost:8081/api/v1/auth/login
+  AUTH     : None
+  BODY     :
+    {
+      "email": "admin@biotrack.com",
+      "password": "Admin@1234"
+    }
+  EXPECTED :
+    HTTP 200 OK
+    {
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOi...",
+      "type": "Bearer"
+    }
+  NOTE: Copy the token value. Paste it in Swagger Authorize as:
+        Bearer eyJhbGciOiJIUzI1NiJ9...
+
+───────────────────────────────────────────────────────────────
+  STEP 8 — Login as Clinical Trial Manager  ★ SAVE THE TOKEN ★
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Login
+  METHOD   : POST
+  URL      : http://localhost:8081/api/v1/auth/login
+  AUTH     : None
+  BODY     :
+    {
+      "email": "ctm@biotrack.com",
+      "password": "Ctm@1234"
+    }
+  EXPECTED :
+    HTTP 200 OK  |  token: "eyJhbGci..."  (save as CTM_TOKEN)
+
+───────────────────────────────────────────────────────────────
+  STEP 9 — Login as Lab Technician  ★ SAVE THE TOKEN ★
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Login
+  METHOD   : POST
+  URL      : http://localhost:8081/api/v1/auth/login
+  AUTH     : None
+  BODY     :
+    {
+      "email": "labtech@biotrack.com",
+      "password": "Lab@1234"
+    }
+  EXPECTED :
+    HTTP 200 OK  |  token: "eyJhbGci..."  (save as LAB_TOKEN)
+
+───────────────────────────────────────────────────────────────
+  STEP 10 — Get All Users (Admin only)
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get All Users
+  METHOD   : GET
+  URL      : http://localhost:8081/api/v1/users
+  AUTH     : Bearer ADMIN_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK
+    [
+      { "userId": 1, "name": "System Admin", "role": "ADMIN", "status": "ACTIVE" },
+      { "userId": 2, "name": "Dr. Sarah Mitchell", "role": "CLINICAL_TRIAL_MANAGER" },
+      ...6 users total
+    ]
+
+───────────────────────────────────────────────────────────────
+  STEP 11 — Get Current User Info
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get Current User (/me)
+  METHOD   : GET
+  URL      : http://localhost:8081/api/v1/auth/me
+  AUTH     : Bearer CTM_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK
+    {
+      "userId": 2,
+      "name": "Dr. Sarah Mitchell",
+      "email": "ctm@biotrack.com",
+      "role": "CLINICAL_TRIAL_MANAGER"
+    }
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PHASE 2 — PROTOCOL SERVICE  (http://localhost:8086/swagger-ui.html)
+════════════════════════════════════════════════════════════════════════════════
+
+  NOTE: Authorize Swagger with CTM_TOKEN before running these steps.
+
+───────────────────────────────────────────────────────────────
+  STEP 12 — Create a Clinical Protocol
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Protocol
+  METHOD   : POST
+  URL      : http://localhost:8086/api/v1/protocols
+  AUTH     : Bearer CTM_TOKEN
+  BODY     :
+    {
+      "title": "CARDIO-TRIAL-2024",
+      "phase": "PHASE_II",
+      "startDate": "2024-01-01",
+      "endDate": "2025-12-31",
+      "status": "ACTIVE"
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "protocolId": 1,
+      "title": "CARDIO-TRIAL-2024",
+      "phase": "PHASE_II",
+      "startDate": "2024-01-01",
+      "endDate": "2025-12-31",
+      "status": "ACTIVE",
+      "sites": []
+    }
+  NOTE: Save protocolId = 1
+
+───────────────────────────────────────────────────────────────
+  STEP 13 — Create a Site
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Site
+  METHOD   : POST
+  URL      : http://localhost:8086/api/v1/sites
+  AUTH     : Bearer CTM_TOKEN
+  BODY     :
+    {
+      "name": "City General Hospital",
+      "location": "Chennai, Tamil Nadu",
+      "investigatorId": "INV-001",
+      "status": "ACTIVE"
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "siteId": 1,
+      "name": "City General Hospital",
+      "location": "Chennai, Tamil Nadu",
+      "investigatorId": "INV-001",
+      "status": "ACTIVE",
+      "protocols": []
+    }
+  NOTE: Save siteId = 1
+
+───────────────────────────────────────────────────────────────
+  STEP 14 — Get All Protocols
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get All Protocols
+  METHOD   : GET
+  URL      : http://localhost:8086/api/v1/protocols
+  AUTH     : Bearer CTM_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK
+    [
+      {
+        "protocolId": 1,
+        "title": "CARDIO-TRIAL-2024",
+        "phase": "PHASE_II",
+        "status": "ACTIVE"
+      }
+    ]
+
+───────────────────────────────────────────────────────────────
+  STEP 15 — Get Protocol by ID
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get Protocol By ID
+  METHOD   : GET
+  URL      : http://localhost:8086/api/v1/protocols/1
+  AUTH     : Bearer CTM_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  protocolId: 1, title: "CARDIO-TRIAL-2024"
+
+───────────────────────────────────────────────────────────────
+  STEP 16 — Update Site Status
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Update Site Status
+  METHOD   : PATCH
+  URL      : http://localhost:8086/api/v1/sites/1/status?status=ACTIVE
+  AUTH     : Bearer CTM_TOKEN
+  BODY     : (none — status passed as query param)
+  EXPECTED :
+    HTTP 200 OK  |  siteId: 1, status: "ACTIVE"
+
+───────────────────────────────────────────────────────────────
+  STEP 17 — Get Sites by Protocol
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get Sites by Protocol
+  METHOD   : GET
+  URL      : http://localhost:8086/api/v1/sites/protocol/1
+  AUTH     : Bearer CTM_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  [] (empty until sites are linked to protocol via entity relationship)
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PHASE 3 — PATIENT SERVICE  (http://localhost:8082/swagger-ui.html)
+════════════════════════════════════════════════════════════════════════════════
+
+  NOTE: Authorize Swagger with CTM_TOKEN before running these steps.
+
+───────────────────────────────────────────────────────────────
+  STEP 18 — Enroll a Patient
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Patient
+  METHOD   : POST
+  URL      : http://localhost:8082/api/v1/patients
+  AUTH     : Bearer CTM_TOKEN
+  BODY     :
+    {
+      "name": "Ravi Kumar",
+      "dob": "1985-06-15",
+      "contactInfo": "ravi.kumar@email.com | 9876543210",
+      "enrollmentStatus": "ENROLLED",
+      "siteId": 1,
+      "protocolId": 1
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "patientId": 1,
+      "name": "Ravi Kumar",
+      "dob": "1985-06-15",
+      "contactInfo": "ravi.kumar@email.com | 9876543210",
+      "enrollmentStatus": "ENROLLED",
+      "siteId": 1,
+      "protocolId": 1
+    }
+  NOTE: Save patientId = 1
+
+───────────────────────────────────────────────────────────────
+  STEP 19 — Enroll a Second Patient
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Patient
+  METHOD   : POST
+  URL      : http://localhost:8082/api/v1/patients
+  AUTH     : Bearer CTM_TOKEN
+  BODY     :
+    {
+      "name": "Priya Sharma",
+      "dob": "1990-03-22",
+      "contactInfo": "priya.sharma@email.com | 9123456789",
+      "enrollmentStatus": "SCREENING",
+      "siteId": 1,
+      "protocolId": 1
+    }
+  EXPECTED :
+    HTTP 201 Created  |  patientId: 2
+
+───────────────────────────────────────────────────────────────
+  STEP 20 — Schedule a Visit for Patient 1
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Visit
+  METHOD   : POST
+  URL      : http://localhost:8082/api/v1/visits
+  AUTH     : Bearer CTM_TOKEN
+  BODY     :
+    {
+      "patientId": 1,
+      "protocolId": 1,
+      "siteId": 1,
+      "visitDate": "2024-03-10",
+      "status": "SCHEDULED",
+      "notes": "Baseline visit — initial blood pressure and ECG readings."
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "visitId": 1,
+      "patientId": 1,
+      "protocolId": 1,
+      "siteId": 1,
+      "visitDate": "2024-03-10",
+      "status": "SCHEDULED",
+      "notes": "Baseline visit — initial blood pressure and ECG readings."
+    }
+  NOTE: Save visitId = 1
+
+───────────────────────────────────────────────────────────────
+  STEP 21 — Schedule a Second Visit
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Visit
+  METHOD   : POST
+  URL      : http://localhost:8082/api/v1/visits
+  AUTH     : Bearer CTM_TOKEN
+  BODY     :
+    {
+      "patientId": 1,
+      "protocolId": 1,
+      "siteId": 1,
+      "visitDate": "2024-04-10",
+      "status": "SCHEDULED",
+      "notes": "4-week follow-up — treatment response assessment."
+    }
+  EXPECTED :
+    HTTP 201 Created  |  visitId: 2
+
+───────────────────────────────────────────────────────────────
+  STEP 22 — Get All Patients
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get All Patients
+  METHOD   : GET
+  URL      : http://localhost:8082/api/v1/patients
+  AUTH     : Bearer CTM_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  Array of 2 patients
+
+───────────────────────────────────────────────────────────────
+  STEP 23 — Get Visits by Patient
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get Visits By Patient
+  METHOD   : GET
+  URL      : http://localhost:8082/api/v1/visits/patient/1
+  AUTH     : Bearer CTM_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  Array with 2 visits for patient 1
+
+───────────────────────────────────────────────────────────────
+  STEP 24 — Update Visit Status to COMPLETED
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Update Visit
+  METHOD   : PUT
+  URL      : http://localhost:8082/api/v1/visits/1
+  AUTH     : Bearer CTM_TOKEN
+  BODY     :
+    {
+      "patientId": 1,
+      "protocolId": 1,
+      "siteId": 1,
+      "visitDate": "2024-03-10",
+      "status": "COMPLETED",
+      "notes": "Baseline visit completed. All readings normal."
+    }
+  EXPECTED :
+    HTTP 200 OK  |  visitId: 1, status: "COMPLETED"
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PHASE 4 — SAMPLE SERVICE  (http://localhost:8083/swagger-ui.html)
+════════════════════════════════════════════════════════════════════════════════
+
+  NOTE: Authorize Swagger with LAB_TOKEN before running these steps.
+
+───────────────────────────────────────────────────────────────
+  STEP 25 — Collect a Sample from Patient 1
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Sample
+  METHOD   : POST
+  URL      : http://localhost:8083/api/v1/samples
+  AUTH     : Bearer LAB_TOKEN
+  BODY     :
+    {
+      "collectedDate": "2024-03-10",
+      "status": "COLLECTED",
+      "patientId": 1,
+      "siteId": 1,
+      "protocolId": 1
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "sampleId": 1,
+      "collectedDate": "2024-03-10",
+      "status": "COLLECTED",
+      "patientId": 1,
+      "siteId": 1,
+      "protocolId": 1
+    }
+  NOTE: Save sampleId = 1
+
+───────────────────────────────────────────────────────────────
+  STEP 26 — Collect a Second Sample from Patient 2
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Sample
+  METHOD   : POST
+  URL      : http://localhost:8083/api/v1/samples
+  AUTH     : Bearer LAB_TOKEN
+  BODY     :
+    {
+      "collectedDate": "2024-03-11",
+      "status": "COLLECTED",
+      "patientId": 2,
+      "siteId": 1,
+      "protocolId": 1
+    }
+  EXPECTED :
+    HTTP 201 Created  |  sampleId: 2
+
+───────────────────────────────────────────────────────────────
+  STEP 27 — Record Lab Result for Sample 1
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Lab Result
+  METHOD   : POST
+  URL      : http://localhost:8083/api/v1/lab-results
+  AUTH     : Bearer LAB_TOKEN
+  BODY     :
+    {
+      "sampleId": 1,
+      "testType": "Complete Blood Count",
+      "resultValue": "WBC: 7.2, RBC: 4.8, Hgb: 14.2, Plt: 220",
+      "date": "2024-03-11",
+      "status": "COMPLETED"
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "resultId": 1,
+      "sampleId": 1,
+      "testType": "Complete Blood Count",
+      "resultValue": "WBC: 7.2, RBC: 4.8, Hgb: 14.2, Plt: 220",
+      "date": "2024-03-11",
+      "status": "COMPLETED"
+    }
+  NOTE: Save resultId = 1
+
+───────────────────────────────────────────────────────────────
+  STEP 28 — Record Lab Result for Sample 2
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Lab Result
+  METHOD   : POST
+  URL      : http://localhost:8083/api/v1/lab-results
+  AUTH     : Bearer LAB_TOKEN
+  BODY     :
+    {
+      "sampleId": 2,
+      "testType": "Lipid Panel",
+      "resultValue": "Total Cholesterol: 195, LDL: 120, HDL: 52, Triglycerides: 148",
+      "date": "2024-03-12",
+      "status": "PENDING"
+    }
+  EXPECTED :
+    HTTP 201 Created  |  resultId: 2, status: "PENDING"
+
+───────────────────────────────────────────────────────────────
+  STEP 29 — Update Sample Status to IN_STORAGE
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Update Sample
+  METHOD   : PUT
+  URL      : http://localhost:8083/api/v1/samples/1
+  AUTH     : Bearer LAB_TOKEN
+  BODY     :
+    {
+      "collectedDate": "2024-03-10",
+      "status": "IN_STORAGE",
+      "patientId": 1,
+      "siteId": 1,
+      "protocolId": 1
+    }
+  EXPECTED :
+    HTTP 200 OK  |  sampleId: 1, status: "IN_STORAGE"
+
+───────────────────────────────────────────────────────────────
+  STEP 30 — Update Lab Result Status to REVIEWED
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Update Lab Result
+  METHOD   : PUT
+  URL      : http://localhost:8083/api/v1/lab-results/1
+  AUTH     : Bearer LAB_TOKEN
+  BODY     :
+    {
+      "sampleId": 1,
+      "testType": "Complete Blood Count",
+      "resultValue": "WBC: 7.2, RBC: 4.8, Hgb: 14.2, Plt: 220",
+      "date": "2024-03-11",
+      "status": "REVIEWED"
+    }
+  EXPECTED :
+    HTTP 200 OK  |  resultId: 1, status: "REVIEWED"
+
+───────────────────────────────────────────────────────────────
+  STEP 31 — Get All Samples
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get All Samples
+  METHOD   : GET
+  URL      : http://localhost:8083/api/v1/samples
+  AUTH     : Bearer LAB_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  Array of 2 samples
+
+───────────────────────────────────────────────────────────────
+  STEP 32 — Get Lab Result by Sample ID
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get Lab Result By Sample
+  METHOD   : GET
+  URL      : http://localhost:8083/api/v1/lab-results/sample/1
+  AUTH     : Bearer LAB_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  resultId: 1, testType: "Complete Blood Count", status: "REVIEWED"
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PHASE 5 — NOTIFICATIONS SERVICE  (http://localhost:8084/swagger-ui.html)
+════════════════════════════════════════════════════════════════════════════════
+
+  NOTE: Authorize Swagger with ADMIN_TOKEN or CTM_TOKEN for dispatch/create.
+
+───────────────────────────────────────────────────────────────
+  STEP 33 — Create a SYSTEM Notification
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Notification
+  METHOD   : POST
+  URL      : http://localhost:8084/api/v1/notifications
+  AUTH     : Bearer CTM_TOKEN
+  BODY     :
+    {
+      "userId": 3,
+      "message": "New lab results are available for patient Ravi Kumar (ID: 1). Please review.",
+      "type": "SYSTEM",
+      "status": "UNREAD",
+      "createdDate": "2024-03-12",
+      "recipientEmail": null
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "notificationId": 1,
+      "userId": 3,
+      "message": "New lab results are available for patient Ravi Kumar (ID: 1). Please review.",
+      "type": "SYSTEM",
+      "status": "UNREAD",
+      "createdDate": "2024-03-12",
+      "recipientEmail": null
+    }
+  NOTE: No email is sent — type is SYSTEM, only stored in DB.
+
+───────────────────────────────────────────────────────────────
+  STEP 34 — Dispatch an EMAIL Notification  ★ SENDS REAL EMAIL ★
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Dispatch Notification
+  METHOD   : POST
+  URL      : http://localhost:8084/api/v1/notifications/dispatch
+  AUTH     : Bearer CTM_TOKEN
+  BODY     :
+    {
+      "userId": 2,
+      "message": "Protocol CARDIO-TRIAL-2024 baseline visit has been completed for patient Ravi Kumar. Lab results are now available for review.",
+      "type": "EMAIL",
+      "status": "UNREAD",
+      "createdDate": "2024-03-12",
+      "recipientEmail": "ctm@biotrack.com"
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "notificationId": 2,
+      "userId": 2,
+      "message": "Protocol CARDIO-TRIAL-2024 baseline visit has been completed...",
+      "type": "EMAIL",
+      "status": "UNREAD",
+      "createdDate": "2024-03-12",
+      "recipientEmail": "ctm@biotrack.com"
+    }
+  NOTE: An actual HTML email is dispatched to ctm@biotrack.com via Gmail SMTP.
+        (Configure application.yaml with real Gmail credentials first.)
+
+───────────────────────────────────────────────────────────────
+  STEP 35 — Get Notifications for User 3 (Lab Technician)
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get Notifications By User
+  METHOD   : GET
+  URL      : http://localhost:8084/api/v1/notifications/user/3
+  AUTH     : Bearer LAB_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK
+    [
+      { "notificationId": 1, "userId": 3, "type": "SYSTEM", "status": "UNREAD" }
+    ]
+
+───────────────────────────────────────────────────────────────
+  STEP 36 — Get Unread Count for User 3
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get Unread Count
+  METHOD   : GET
+  URL      : http://localhost:8084/api/v1/notifications/user/3/unread
+  AUTH     : Bearer LAB_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  1
+
+───────────────────────────────────────────────────────────────
+  STEP 37 — Mark Notification as Read
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Mark As Read
+  METHOD   : PUT
+  URL      : http://localhost:8084/api/v1/notifications/1/read
+  AUTH     : Bearer LAB_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK
+    {
+      "notificationId": 1,
+      "status": "READ"
+    }
+
+───────────────────────────────────────────────────────────────
+  STEP 38 — Mark All as Read for User 3
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Mark All As Read
+  METHOD   : PUT
+  URL      : http://localhost:8084/api/v1/notifications/user/3/read-all
+  AUTH     : Bearer LAB_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  0  (all were already read after Step 37)
+
+───────────────────────────────────────────────────────────────
+  STEP 39 — Get All Notifications (Admin view)
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get All Notifications
+  METHOD   : GET
+  URL      : http://localhost:8084/api/v1/notifications
+  AUTH     : Bearer ADMIN_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  Array of 2 notifications
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PHASE 6 — ANALYTICS SERVICE  (http://localhost:8087/swagger-ui.html)
+════════════════════════════════════════════════════════════════════════════════
+
+  NOTE: Login as Data Manager and use DATA_MANAGER_TOKEN.
+        POST /api/v1/auth/login  →  { "email": "datamanager@biotrack.com", "password": "Data@1234" }
+
+───────────────────────────────────────────────────────────────
+  STEP 40 — Create Enrollment Rate KPI Report
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add KPI Report
+  METHOD   : POST
+  URL      : http://localhost:8087/api/v1/kpi-reports
+  AUTH     : Bearer DATA_MANAGER_TOKEN
+  BODY     :
+    {
+      "scope": "ENROLLMENT_RATE",
+      "metrics": "{\"totalEnrolled\": 2, \"target\": 50, \"completionPercent\": 4.0, \"protocol\": \"CARDIO-TRIAL-2024\"}",
+      "generatedDate": "2024-03-12"
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "reportId": 1,
+      "scope": "ENROLLMENT_RATE",
+      "metrics": "{\"totalEnrolled\": 2, \"target\": 50...}",
+      "generatedDate": "2024-03-12"
+    }
+  NOTE: Save reportId = 1
+
+───────────────────────────────────────────────────────────────
+  STEP 41 — Create Sample Processing Rate KPI Report
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add KPI Report
+  METHOD   : POST
+  URL      : http://localhost:8087/api/v1/kpi-reports
+  AUTH     : Bearer DATA_MANAGER_TOKEN
+  BODY     :
+    {
+      "scope": "SAMPLE_PROCESSING_RATE",
+      "metrics": "{\"totalSamples\": 2, \"processed\": 1, \"pending\": 1, \"processingRate\": 50.0}",
+      "generatedDate": "2024-03-12"
+    }
+  EXPECTED :
+    HTTP 201 Created  |  reportId: 2
+
+───────────────────────────────────────────────────────────────
+  STEP 42 — Create Compliance Score KPI Report
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add KPI Report
+  METHOD   : POST
+  URL      : http://localhost:8087/api/v1/kpi-reports
+  AUTH     : Bearer DATA_MANAGER_TOKEN
+  BODY     :
+    {
+      "scope": "COMPLIANCE_SCORE",
+      "metrics": "{\"totalAuditEvents\": 12, \"compliantEvents\": 12, \"score\": 100.0}",
+      "generatedDate": "2024-03-12"
+    }
+  EXPECTED :
+    HTTP 201 Created  |  reportId: 3
+
+───────────────────────────────────────────────────────────────
+  STEP 43 — Get All KPI Reports
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get All KPI Reports
+  METHOD   : GET
+  URL      : http://localhost:8087/api/v1/kpi-reports
+  AUTH     : Bearer DATA_MANAGER_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  Array of 3 reports
+
+───────────────────────────────────────────────────────────────
+  STEP 44 — Get Reports by Scope
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get Reports By Scope
+  METHOD   : GET
+  URL      : http://localhost:8087/api/v1/kpi-reports/scope/ENROLLMENT_RATE
+  AUTH     : Bearer DATA_MANAGER_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK
+    [
+      {
+        "reportId": 1,
+        "scope": "ENROLLMENT_RATE",
+        "generatedDate": "2024-03-12"
+      }
+    ]
+
+───────────────────────────────────────────────────────────────
+  STEP 45 — Update a KPI Report
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Update KPI Report
+  METHOD   : PUT
+  URL      : http://localhost:8087/api/v1/kpi-reports/1
+  AUTH     : Bearer DATA_MANAGER_TOKEN
+  BODY     :
+    {
+      "scope": "ENROLLMENT_RATE",
+      "metrics": "{\"totalEnrolled\": 3, \"target\": 50, \"completionPercent\": 6.0, \"protocol\": \"CARDIO-TRIAL-2024\"}",
+      "generatedDate": "2024-03-13"
+    }
+  EXPECTED :
+    HTTP 200 OK  |  reportId: 1, metrics updated, generatedDate: "2024-03-13"
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PHASE 7 — COMPLIANCE SERVICE  (http://localhost:8085/swagger-ui.html)
+════════════════════════════════════════════════════════════════════════════════
+
+  NOTE: Login as Regulatory Officer:
+        POST /api/v1/auth/login  →  { "email": "regulatory@biotrack.com", "password": "Reg@1234" }
+        Save as REG_TOKEN.
+
+  IMPORTANT: By this point, the system has auto-generated audit log entries
+  for every CREATE/UPDATE/DELETE performed in Steps 12–45 above.
+  These were created automatically via OpenFeign calls to compliance-service.
+
+───────────────────────────────────────────────────────────────
+  STEP 46 — View All Audit Logs (Auto-Generated)
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get All Audit Logs
+  METHOD   : GET
+  URL      : http://localhost:8085/api/v1/audit-logs
+  AUTH     : Bearer REG_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK
+    [
+      {
+        "auditLogId": 1,
+        "performedBy": "ctm@biotrack.com",
+        "action": "CREATE",
+        "timestamp": "2024-03-10T10:00:00",
+        "protocolId": null
+      },
+      {
+        "auditLogId": 2,
+        "performedBy": "ctm@biotrack.com",
+        "action": "CREATE",
+        "timestamp": "2024-03-10T10:01:00",
+        "protocolId": null
+      },
+      ... (one entry per CREATE/UPDATE/DELETE from all services)
+    ]
+  NOTE: You should see ~20+ audit entries reflecting all the operations above.
+
+───────────────────────────────────────────────────────────────
+  STEP 47 — Get Audit Log by ID
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get Audit Log By ID
+  METHOD   : GET
+  URL      : http://localhost:8085/api/v1/audit-logs/1
+  AUTH     : Bearer REG_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  auditLogId: 1, action: "CREATE"
+
+───────────────────────────────────────────────────────────────
+  STEP 48 — Manually Create an Audit Log Entry
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Audit Log
+  METHOD   : POST
+  URL      : http://localhost:8085/api/v1/audit-logs
+  AUTH     : Bearer ADMIN_TOKEN
+  BODY     :
+    {
+      "performedBy": "admin@biotrack.com",
+      "action": "LOGIN",
+      "timestamp": "2024-03-12T09:00:00",
+      "protocolId": null
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "auditLogId": 21,
+      "performedBy": "admin@biotrack.com",
+      "action": "LOGIN",
+      "timestamp": "2024-03-12T09:00:00"
+    }
+
+───────────────────────────────────────────────────────────────
+  STEP 49 — Create a Compliance Report
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Add Compliance Report
+  METHOD   : POST
+  URL      : http://localhost:8085/api/v1/compliance-reports
+  AUTH     : Bearer REG_TOKEN
+  BODY     :
+    {
+      "scope": "Q1-2024 Protocol CARDIO-TRIAL-2024 Audit Review",
+      "metrics": "Total audit events: 21. All actions performed by authorized personnel. No GxP deviations identified. Data integrity maintained across all services.",
+      "generatedDate": "2024-03-13"
+    }
+  EXPECTED :
+    HTTP 201 Created
+    {
+      "reportId": 1,
+      "scope": "Q1-2024 Protocol CARDIO-TRIAL-2024 Audit Review",
+      "metrics": "Total audit events: 21...",
+      "generatedDate": "2024-03-13"
+    }
+  NOTE: Save reportId = 1
+
+───────────────────────────────────────────────────────────────
+  STEP 50 — Get All Compliance Reports
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get All Compliance Reports
+  METHOD   : GET
+  URL      : http://localhost:8085/api/v1/compliance-reports
+  AUTH     : Bearer REG_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 200 OK  |  Array containing the compliance report from Step 49
+
+───────────────────────────────────────────────────────────────
+  STEP 51 — Update Compliance Report
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Update Compliance Report
+  METHOD   : PUT
+  URL      : http://localhost:8085/api/v1/compliance-reports/1
+  AUTH     : Bearer REG_TOKEN
+  BODY     :
+    {
+      "scope": "Q1-2024 Protocol CARDIO-TRIAL-2024 Audit Review — FINAL",
+      "metrics": "Total audit events: 22. All actions performed by authorized personnel. No GxP deviations. Data integrity confirmed. Approved for regulatory submission.",
+      "generatedDate": "2024-03-14"
+    }
+  EXPECTED :
+    HTTP 200 OK  |  reportId: 1, scope updated to "...FINAL"
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PHASE 8 — NEGATIVE / PERMISSION TEST CASES (Security Validation)
+════════════════════════════════════════════════════════════════════════════════
+
+───────────────────────────────────────────────────────────────
+  STEP 52 — Lab Technician tries to delete a Patient (SHOULD FAIL)
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Delete Patient
+  METHOD   : DELETE
+  URL      : http://localhost:8082/api/v1/patients/1
+  AUTH     : Bearer LAB_TOKEN  (LAB_TECHNICIAN role)
+  BODY     : (none)
+  EXPECTED :
+    HTTP 403 Forbidden
+    {
+      "error": "Access Denied",
+      "message": "Access is denied"
+    }
+  REASON   : DELETE /patients requires hasRole('ADMIN') — Lab Technician is rejected.
+
+───────────────────────────────────────────────────────────────
+  STEP 53 — Unauthenticated request to get patients (SHOULD FAIL)
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get All Patients
+  METHOD   : GET
+  URL      : http://localhost:8082/api/v1/patients
+  AUTH     : (no token)
+  BODY     : (none)
+  EXPECTED :
+    HTTP 401 Unauthorized
+    {
+      "error": "Unauthorized",
+      "message": "Full authentication is required"
+    }
+
+───────────────────────────────────────────────────────────────
+  STEP 54 — Research Scientist tries to create a Protocol (SHOULD FAIL)
+───────────────────────────────────────────────────────────────
+  NOTE: First login as Research Scientist:
+        POST /api/v1/auth/login  →  { "email": "scientist@biotrack.com", "password": "Sci@1234" }
+  ENDPOINT : Add Protocol
+  METHOD   : POST
+  URL      : http://localhost:8086/api/v1/protocols
+  AUTH     : Bearer SCIENTIST_TOKEN
+  BODY     :
+    {
+      "title": "UNAUTHORIZED-TRIAL",
+      "phase": "PHASE_I",
+      "startDate": "2024-01-01",
+      "endDate": "2024-12-31",
+      "status": "ACTIVE"
+    }
+  EXPECTED :
+    HTTP 403 Forbidden
+  REASON   : POST /protocols requires hasAnyRole('ADMIN','CLINICAL_TRIAL_MANAGER').
+
+───────────────────────────────────────────────────────────────
+  STEP 55 — Admin resets a user's password
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Reset Password
+  METHOD   : POST
+  URL      : http://localhost:8081/api/v1/users/3/reset-password?newPassword=NewLab@5678
+  AUTH     : Bearer ADMIN_TOKEN
+  BODY     : (none — password passed as query param)
+  EXPECTED :
+    HTTP 200 OK  |  "Password reset successfully"
+
+───────────────────────────────────────────────────────────────
+  STEP 56 — Request with expired / invalid token (SHOULD FAIL)
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get All Protocols
+  METHOD   : GET
+  URL      : http://localhost:8086/api/v1/protocols
+  AUTH     : Bearer invalidtoken123
+  BODY     : (none)
+  EXPECTED :
+    HTTP 401 Unauthorized
+    { "error": "Invalid or expired JWT token" }
+
+───────────────────────────────────────────────────────────────
+  STEP 57 — Get Non-Existent Resource (SHOULD FAIL)
+───────────────────────────────────────────────────────────────
+  ENDPOINT : Get Patient By ID
+  METHOD   : GET
+  URL      : http://localhost:8082/api/v1/patients/999
+  AUTH     : Bearer CTM_TOKEN
+  BODY     : (none)
+  EXPECTED :
+    HTTP 404 Not Found
+    {
+      "error": "Not Found",
+      "message": "Patient not found with ID: 999"
+    }
+
+
+════════════════════════════════════════════════════════════════════════════════
+  PHASE 9 — CLEANUP / DELETE TEST CASES
+════════════════════════════════════════════════════════════════════════════════
+
+───────────────────────────────────────────────────────────────
+  STEP 58 — Delete Lab Result (Admin)
+───────────────────────────────────────────────────────────────
+  METHOD   : DELETE
+  URL      : http://localhost:8083/api/v1/lab-results/2
+  AUTH     : Bearer ADMIN_TOKEN
+  EXPECTED :  HTTP 200 OK  |  "LabResult deleted successfully with ID: 2"
+
+───────────────────────────────────────────────────────────────
+  STEP 59 — Delete Sample (Admin)
+───────────────────────────────────────────────────────────────
+  METHOD   : DELETE
+  URL      : http://localhost:8083/api/v1/samples/2
+  AUTH     : Bearer ADMIN_TOKEN
+  EXPECTED :  HTTP 200 OK  |  "Sample deleted successfully with ID: 2"
+
+───────────────────────────────────────────────────────────────
+  STEP 60 — Delete KPI Report (Admin)
+───────────────────────────────────────────────────────────────
+  METHOD   : DELETE
+  URL      : http://localhost:8087/api/v1/kpi-reports/3
+  AUTH     : Bearer ADMIN_TOKEN
+  EXPECTED :  HTTP 200 OK  |  "KpiReport deleted successfully with ID: 3"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 5 — COMPLETE ENDPOINT REFERENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  IAM SERVICE  (port 8081)
+  ─────────────────────────────────────────────────────────────────────
+  POST   /api/v1/auth/register              — Register user (public)
+  POST   /api/v1/auth/login                 — Login, returns JWT (public)
+  GET    /api/v1/auth/me                    — Get current user info
+  POST   /api/v1/auth/logout                — Logout
+  GET    /api/v1/auth/validate              — Validate token
+  POST   /api/v1/users                      — Create user          [ADMIN]
+  GET    /api/v1/users                      — Get all users        [ADMIN]
+  GET    /api/v1/users/{id}                 — Get user by ID       [ADMIN]
+  PUT    /api/v1/users/{id}                 — Update user          [ADMIN]
+  DELETE /api/v1/users/{id}                 — Delete user          [ADMIN]
+  PUT    /api/v1/users/{id}/role            — Update user role     [ADMIN]
+  PUT    /api/v1/users/{id}/roles           — Assign role          [ADMIN]
+  PATCH  /api/v1/users/{id}/status          — Update status        [ADMIN]
+  POST   /api/v1/users/{id}/reset-password  — Reset password       [ADMIN]
+  GET    /api/v1/users/{id}/permissions     — Get permissions      [AUTH]
+  GET    /api/v1/users/roles                — List all roles       [AUTH]
+
+  PROTOCOL SERVICE  (port 8086)
+  ─────────────────────────────────────────────────────────────────────
+  POST   /api/v1/protocols                  — Create protocol      [ADMIN, CTM]
+  GET    /api/v1/protocols                  — Get all protocols    [AUTH]
+  GET    /api/v1/protocols/{id}             — Get by ID            [AUTH]
+  PUT    /api/v1/protocols/{id}             — Update protocol      [ADMIN, CTM]
+  DELETE /api/v1/protocols/{id}             — Delete protocol      [ADMIN]
+  PATCH  /api/v1/protocols/{id}/close       — Close protocol       [ADMIN]
+  POST   /api/v1/sites                      — Create site          [ADMIN, CTM]
+  GET    /api/v1/sites                      — Get all sites        [AUTH]
+  GET    /api/v1/sites/{id}                 — Get by ID            [AUTH]
+  PUT    /api/v1/sites/{id}                 — Update site          [ADMIN, CTM]
+  DELETE /api/v1/sites/{id}                 — Delete site          [ADMIN]
+  PATCH  /api/v1/sites/{id}/status          — Update site status   [ADMIN, CTM]
+  GET    /api/v1/sites/protocol/{protocolId} — Sites by protocol   [AUTH]
+  GET    /api/v1/sites/{id}/investigators   — Get investigators    [AUTH]
+  GET    /api/v1/sites/{id}/protocols       — Get protocols        [AUTH]
+
+  PATIENT SERVICE  (port 8082)
+  ─────────────────────────────────────────────────────────────────────
+  POST   /api/v1/patients                   — Enroll patient       [ADMIN, CTM]
+  GET    /api/v1/patients                   — Get all patients     [AUTH]
+  GET    /api/v1/patients/{id}              — Get by ID            [AUTH]
+  PUT    /api/v1/patients/{id}              — Update patient       [ADMIN, CTM]
+  DELETE /api/v1/patients/{id}              — Delete patient       [ADMIN]
+  POST   /api/v1/visits                     — Create visit         [ADMIN, CTM, LAB]
+  GET    /api/v1/visits                     — Get all visits       [AUTH]
+  GET    /api/v1/visits/{id}                — Get by ID            [AUTH]
+  PUT    /api/v1/visits/{id}                — Update visit         [ADMIN, CTM, LAB]
+  DELETE /api/v1/visits/{id}                — Delete visit         [ADMIN]
+  GET    /api/v1/visits/patient/{patientId} — Visits by patient    [AUTH]
+
+  SAMPLE SERVICE  (port 8083)
+  ─────────────────────────────────────────────────────────────────────
+  POST   /api/v1/samples                    — Create sample        [ADMIN, LAB]
+  GET    /api/v1/samples                    — Get all samples      [AUTH]
+  GET    /api/v1/samples/{id}               — Get by ID            [AUTH]
+  PUT    /api/v1/samples/{id}               — Update sample        [ADMIN, LAB]
+  DELETE /api/v1/samples/{id}               — Delete sample        [ADMIN]
+  POST   /api/v1/lab-results                — Create lab result    [ADMIN, LAB]
+  GET    /api/v1/lab-results                — Get all lab results  [AUTH]
+  GET    /api/v1/lab-results/{id}           — Get by ID            [AUTH]
+  PUT    /api/v1/lab-results/{id}           — Update lab result    [ADMIN, LAB]
+  DELETE /api/v1/lab-results/{id}           — Delete lab result    [ADMIN]
+  GET    /api/v1/lab-results/sample/{id}    — Result by sample     [AUTH]
+
+  NOTIFICATIONS SERVICE  (port 8084)
+  ─────────────────────────────────────────────────────────────────────
+  POST   /api/v1/notifications              — Create notification  [ADMIN, CTM]
+  GET    /api/v1/notifications              — Get all             [ADMIN, CTM, DM]
+  GET    /api/v1/notifications/{id}         — Get by ID            [AUTH]
+  PUT    /api/v1/notifications/{id}         — Update               [ADMIN]
+  DELETE /api/v1/notifications/{id}         — Delete               [ADMIN]
+  POST   /api/v1/notifications/dispatch     — Dispatch + email     [ADMIN, CTM]
+  GET    /api/v1/notifications/user/{id}    — By user              [AUTH]
+  GET    /api/v1/notifications/user/{id}/unread — Unread count     [AUTH]
+  PUT    /api/v1/notifications/{id}/read    — Mark as read         [AUTH]
+  PUT    /api/v1/notifications/user/{id}/read-all — Mark all read  [AUTH]
+  POST   /api/v1/notifications/preferences  — Update preferences   [AUTH]
+
+  ANALYTICS SERVICE  (port 8087)
+  ─────────────────────────────────────────────────────────────────────
+  POST   /api/v1/kpi-reports                — Create KPI report    [ADMIN, DM]
+  GET    /api/v1/kpi-reports                — Get all              [AUTH]
+  GET    /api/v1/kpi-reports/{id}           — Get by ID            [AUTH]
+  PUT    /api/v1/kpi-reports/{id}           — Update               [ADMIN, DM]
+  DELETE /api/v1/kpi-reports/{id}           — Delete               [ADMIN]
+  GET    /api/v1/kpi-reports/scope/{scope}  — By scope             [AUTH]
+
+  COMPLIANCE SERVICE  (port 8085)
+  ─────────────────────────────────────────────────────────────────────
+  POST   /api/v1/audit-logs                 — Create audit log     [AUTH]
+  GET    /api/v1/audit-logs                 — Get all              [ADMIN, REG, DM]
+  GET    /api/v1/audit-logs/{id}            — Get by ID            [ADMIN, REG, DM]
+  PUT    /api/v1/audit-logs/{id}            — Update               [ADMIN]
+  DELETE /api/v1/audit-logs/{id}            — Delete               [ADMIN]
+  POST   /api/v1/compliance-reports         — Create report        [ADMIN, REG]
+  GET    /api/v1/compliance-reports         — Get all              [ADMIN, REG, DM, RS]
+  GET    /api/v1/compliance-reports/{id}    — Get by ID            [ADMIN, REG, DM, RS]
+  PUT    /api/v1/compliance-reports/{id}    — Update               [ADMIN, REG]
+  DELETE /api/v1/compliance-reports/{id}    — Delete               [ADMIN]
+
+  ROLE CODES USED ABOVE:
+    ADMIN=Admin  CTM=Clinical_Trial_Manager  LAB=Lab_Technician
+    REG=Regulatory_Officer  DM=Data_Manager  RS=Research_Scientist
+    AUTH=Any authenticated user
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECTION 6 — QUICK START CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  BEFORE RUNNING TEST CASES:
+  □ MySQL running  |  Create 7 databases:
+      biotrack_iam, biotrack_patients, biotrack_samples,
+      biotrack_notifications, biotrack_compliance,
+      biotrack_protocol, biotrack_analytics
+  □ Configure Gmail App Password in notifications-service/application.yaml
+  □ Start Eureka Server (port 8761) first
+  □ Start all 7 microservices
+  □ Start API Gateway (port 8080)
+  □ Verify all services registered in Eureka: http://localhost:8761
+
+  TEST EXECUTION ORDER:
+  Phase 1 → IAM (8081)       Steps  1–11   Register + Login all users
+  Phase 2 → Protocol (8086)  Steps 12–17   Create protocol + site
+  Phase 3 → Patient (8082)   Steps 18–24   Enroll patients + schedule visits
+  Phase 4 → Sample (8083)    Steps 25–32   Collect samples + record lab results
+  Phase 5 → Notify (8084)    Steps 33–39   Send notifications + email
+  Phase 6 → Analytics (8087) Steps 40–45   Generate KPI reports
+  Phase 7 → Compliance (8085) Steps 46–51  Review audit logs + compliance reports
+  Phase 8 → Security checks  Steps 52–57   Validate 403/401 responses
+  Phase 9 → Cleanup          Steps 58–60   Delete test data
+
+================================================================================
+  END OF DOCUMENT
+================================================================================

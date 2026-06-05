@@ -1,0 +1,15 @@
+import api from './axios'
+
+export const getPatients = () => api.get('/patients')
+export const getPatientById = (id) => api.get(`/patients/${id}`)
+export const createPatient = (data) => api.post('/patients', data)
+export const updatePatient = (id, data) => api.put(`/patients/${id}`, data)
+export const deletePatient = (id) => api.delete(`/patients/${id}`)
+export const updateEnrollmentStatus = (id, status) => api.put(`/patients/${id}/status?status=${status}`)
+export const getPatientHistory = (id) => api.get(`/patients/${id}/history`)
+export const getPatientsBySite = (siteId) => api.get(`/patients/site/${siteId}`)
+export const getPatientsByProtocol = (protocolId) => api.get(`/patients/protocol/${protocolId}`)
+export const getPatientsByStatus = (status) => api.get(`/patients/status/${status}`)
+export const getDeletedPatients = () => api.get('/patients/deleted')
+export const restorePatient = (id) => api.put(`/patients/${id}/restore`)
+export const listDocuments = (id) => api.get(`/patients/${id}/documents`)

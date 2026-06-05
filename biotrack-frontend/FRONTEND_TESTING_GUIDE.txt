@@ -1,0 +1,884 @@
+================================================================================
+          BIOTRACK PLATFORM — COMPLETE FRONTEND TESTING GUIDE
+           Clinical Research & Laboratory Information Platform
+================================================================================
+
+PREREQUISITES
+-------------
+1. All Spring Boot microservices must be running:
+   - Eureka Server         : http://localhost:8761
+   - API Gateway           : http://localhost:8778
+   - IAM Service           : http://localhost:8081
+   - Patient Service       : http://localhost:8082
+   - Protocol Service      : http://localhost:8083
+   - Sample Service        : http://localhost:8084
+   - Notifications Service : http://localhost:8085
+   - Analytics Service     : http://localhost:8086
+   - Compliance Service    : http://localhost:8087
+
+2. MySQL database must be running with all schemas created.
+
+3. Run the MySQL fix (if not done already) in MySQL Workbench:
+   ALTER TABLE biotrack_compliance.audit_logs MODIFY COLUMN user_id BIGINT NULL;
+
+4. Start the React frontend:
+   > cd C:\Users\2485207\OneDrive - Cognizant\Desktop\biotrackkk\biotrack-frontend
+   > npm run dev
+   > Open: http://localhost:3000
+
+
+================================================================================
+  PHASE 1 — INITIAL SETUP: CREATE USERS FOR EACH ROLE
+================================================================================
+
+STEP 1: Register Sania Agarwal (via IAM Swagger or directly in DB)
+---------------------------------------------------------------
+If you already have an admin user, skip this step.
+Otherwise use IAM Swagger at http://localhost:8081/swagger-ui/index.html
+
+  POST /api/v1/auth/register
+  {
+    "name": "Sania Agarwal",
+    "email": "agarwalsania2004@gmail.com",
+    "phone": "9999999999",
+    "role": "ADMIN",
+    "status": "ACTIVE",
+    "password": "password"
+  }
+
+STEP 2: Login as Admin on the Frontend
+---------------------------------------
+  1. Open http://localhost:3000
+  2. You will be redirected to /login
+  3. Enter:
+       Email    : agarwalsania2004@gmail.com
+       Password : password
+  4. Click "Sign In"
+  5. Expected: Redirected to /dashboard
+  6. Sidebar shows ALL menu items (all 12 sections visible)
+  7. Welcome card shows "Sania Agarwal" and "Full platform access enabled."
+
+STEP 3: Create All Role-Based Users from Frontend
+--------------------------------------------------
+  Navigate to: Sidebar → "Users"
+
+  Click "+ Add User" and create each of the following:
+
+  --- User 1: Clinical Trial Manager ---
+  Name     : Ayush Ranjan
+  Email    : nagikusa050@gmail.com
+  Phone    : 9888888888
+  Role     : CLINICAL_TRIAL_MANAGER
+  Status   : ACTIVE
+  Password : password
+  → Save
+
+  --- User 2: Lab Technician ---
+  Name     : Malhar Khatua
+  Email    : mallharkhatua@gmail.com
+  Phone    : 9777777777
+  Role     : LAB_TECHNICIAN
+  Status   : ACTIVE
+  Password : password
+  → Save
+
+  --- User 3: Research Scientist ---
+  Name     : Nikita Chaurasia
+  Email    : chaurasianikita984@gmail.com
+  Phone    : 9666666666
+  Role     : RESEARCH_SCIENTIST
+  Status   : ACTIVE
+  Password : password
+  → Save
+
+  --- User 4: Data Manager ---
+  Name     : Prateek Bora
+  Email    : prateekbora71@gmail.com
+  Phone    : 9555555555
+  Role     : DATA_MANAGER
+  Status   : ACTIVE
+  Password : password
+  → Save
+
+  --- User 5: Regulatory Officer ---
+  Name     : Snehitha Ganta
+  Email    : snehithapriscillaganta7890@gmail.com
+  Phone    : 9444444444
+  Role     : REGULATORY_OFFICER
+  Status   : ACTIVE
+  Password : password
+  → Save
+
+  Expected: Users table shows 6 rows (Admin + 5 new users).
+  Each row shows correct role badge color:
+    ADMIN                  → Red badge
+    CLINICAL_TRIAL_MANAGER → Blue badge
+    LAB_TECHNICIAN         → Green badge
+    RESEARCH_SCIENTIST     → Orange badge
+    REGULATORY_OFFICER     → Grey badge
+    DATA_MANAGER           → Grey badge
+
+
+================================================================================
+  PHASE 2 — ADMIN TESTING (Full Access)
+================================================================================
+
+Login: agarwalsania2004@gmail.com / password
+
+--- TEST 2.1: Dashboard ---
+1. Go to /dashboard
+2. Stats cards visible: Patients, Protocols, Sites, Samples, KPI Reports, Audit Logs
+3. Quick Actions shows: "Enroll Patient", "Create Protocol", "Add Sample",
+   "View Analytics", "Generate Report", "Notifications"
+4. Clicking any stat card navigates to that page
+
+--- TEST 2.2: Create Protocol ---
+1. Sidebar → Protocols → Click "+ New Protocol"
+2. Fill in:
+     Title      : Oncology Trial Alpha
+     Phase      : PHASE_II
+     Start Date : 2025-01-01
+     End Date   : 2026-12-31
+     Status     : ACTIVE
+3. Click Save
+4. Expected: New row appears in table with PHASE II badge (orange)
+5. Note the Protocol ID (e.g., 1)
+
+Create a second protocol:
+     Title      : Cardiology Study Beta
+     Phase      : PHASE_I
+     Start Date : 2025-03-01
+     End Date   : 2027-06-30
+     Status     : ACTIVE
+6. Expected: Two protocols in table
+
+--- TEST 2.3: Create Sites ---
+1. Sidebar → Sites → Click "+ Add Site"
+2. Fill in:
+     Name           : Mumbai Research Center
+     Location       : Mumbai, India
+     Investigator ID: DR-001
+     Status         : ACTIVE
+3. Click Save
+4. Expected: Site appears in table
+
+Create second site:
+     Name           : Delhi Clinical Lab
+     Location       : Delhi, India
+     Investigator ID: DR-002
+     Status         : ACTIVE
+5. Expected: Two sites in table
+
+--- TEST 2.4: Assign Sites to Protocol ---
+1. Sidebar → Protocols
+2. On "Oncology Trial Alpha" row → Click the 🏛️ (Assign Site) button
+3. Modal opens: "Assign Site to Oncology Trial Alpha"
+4. Select: "Mumbai Research Center (Mumbai, India)"
+5. Click Assign
+6. Expected: Protocol row updates, Sites column shows "Mumbai Research Center"
+
+7. Click 🏛️ again on the same protocol
+8. Select: "Delhi Clinical Lab"
+9. Click Assign
+10. Expected: Sites column shows "Mumbai Research Center, Delhi Clinical Lab"
+
+--- TEST 2.5: Get Sites by Protocol (Step 17 Fix Verification) ---
+1. Sidebar → Sites
+2. In "Protocol ID filter" input → enter: 1
+3. Click "🔍 Filter by Protocol"
+4. Expected: Only shows "Mumbai Research Center" and "Delhi Clinical Lab"
+5. Click "Clear" → all sites return
+6. Enter a non-existent protocol ID (e.g., 999) → click filter
+7. Expected: Empty state "No sites found"
+
+--- TEST 2.6: Update Protocol Phase ---
+1. Sidebar → Protocols
+2. On "Oncology Trial Alpha" → change the phase dropdown from "PHASE II" to "PHASE III"
+3. Expected: Badge changes to green "PHASE III"
+
+--- TEST 2.7: Enroll Patients ---
+1. Sidebar → Patients → Click "+ Enroll Patient"
+2. Fill in:
+     First Name        : Jane
+     Last Name         : Smith
+     Date of Birth     : 1985-06-15
+     Gender            : FEMALE
+     Contact Number    : 9111111111
+     Email             : jane.smith@email.com
+     Address           : 456 Oak Ave, Mumbai
+     Protocol ID       : 1
+     Site ID           : 1
+     Enrollment Status : SCREENING
+3. Click Save
+4. Expected: Patient row appears with SCREENING badge (blue)
+5. Note Patient ID (e.g., 1)
+
+Enroll second patient:
+     First Name        : John
+     Last Name         : Doe
+     Date of Birth     : 1990-03-22
+     Gender            : MALE
+     Contact Number    : 9222222222
+     Email             : john.doe@email.com
+     Address           : 789 Pine St, Delhi
+     Protocol ID       : 1
+     Site ID           : 2
+     Enrollment Status : ENROLLED
+
+--- TEST 2.8: Update Patient Enrollment Status ---
+1. In patient table, find "Jane Smith"
+2. Change status dropdown from SCREENING → ENROLLED
+3. Expected: Badge changes from blue to green immediately after reload
+
+--- TEST 2.9: Schedule Visits ---
+1. Sidebar → Visits → Click "+ Schedule Visit"
+2. Fill in:
+     Patient ID  : 1
+     Visit Date  : 2025-02-01
+     Visit Type  : BASELINE
+     Status      : SCHEDULED
+     Notes       : Initial baseline assessment
+3. Click Save
+4. Expected: Visit row appears with SCHEDULED badge
+
+Create second visit:
+     Patient ID  : 1
+     Visit Date  : 2025-04-15
+     Visit Type  : FOLLOW_UP
+     Status      : SCHEDULED
+     Notes       : 3-month follow-up
+
+--- TEST 2.10: Add Samples ---
+1. Sidebar → Samples → Click "+ Add Sample"
+2. Fill in:
+     Patient ID        : 1
+     Protocol ID       : 1
+     Sample Type       : BLOOD
+     Collection Date   : 2025-02-01
+     Storage Location  : Freezer A, Rack 1
+     Status            : COLLECTED
+     Notes             : Fasting blood sample
+3. Click Save
+4. Expected: Sample row appears with COLLECTED badge (blue)
+5. Note Sample ID (e.g., 1)
+
+Create second sample:
+     Patient ID        : 2
+     Protocol ID       : 1
+     Sample Type       : URINE
+     Collection Date   : 2025-02-02
+     Storage Location  : Shelf B, Box 2
+     Status            : COLLECTED
+
+--- TEST 2.11: Update Sample Status ---
+1. In samples table, Sample #1 row
+2. Change status dropdown COLLECTED → PROCESSING
+3. Expected: Badge changes to orange "PROCESSING"
+4. Change again to ANALYSED
+5. Expected: Badge changes to green "ANALYSED"
+
+--- TEST 2.12: Dispose a Sample ---
+1. Find a sample with status != DISPOSED
+2. Click ♻️ button
+3. Confirm dialog: "Mark this sample as disposed?"
+4. Click OK
+5. Expected: Status changes to DISPOSED (red badge)
+6. ♻️ button disappears from that row
+
+--- TEST 2.13: Add Lab Results ---
+1. Sidebar → Lab Results → Click "+ Add Result"
+2. Fill in:
+     Sample ID       : 1
+     Test Name       : Complete Blood Count
+     Result          : 14.2
+     Unit            : g/dL
+     Reference Range : 12.0 - 17.0
+     Status          : COMPLETED
+     Performed By    : Dr. Mehta
+     Performed Date  : 2025-02-05
+3. Click Save
+4. Expected: Result row appears with COMPLETED badge (green)
+
+Create abnormal result:
+     Sample ID       : 2
+     Test Name       : HbA1c
+     Result          : 9.8
+     Unit            : %
+     Reference Range : 4.0 - 6.5
+     Status          : ABNORMAL
+     Performed By    : Dr. Kumar
+     Performed Date  : 2025-02-06
+5. Expected: ABNORMAL badge in red
+
+--- TEST 2.14: Send Notifications ---
+1. Sidebar → Notifications → Click "+ Send Notification"
+2. Fill in:
+     User ID : 2
+     Type    : ALERT
+     Title   : Sample Analysis Complete
+     Message : Lab results for Patient #1 are now available.
+3. Click Save
+4. Expected: Notification appears in table with unread dot (blue dot)
+
+5. Click "+ Send Notification" again
+6. Fill in:
+     User ID : 3
+     Type    : REMINDER
+     Title   : Protocol Review Due
+     Message : Please review Oncology Trial Alpha protocol updates.
+7. This time click "🚀 Dispatch" button (instead of Save)
+8. Expected: Notification sent via dispatch endpoint
+
+--- TEST 2.15: Mark Notifications as Read ---
+1. Find unread notification (blue background, blue dot)
+2. Click ✓ button
+3. Expected: Row background turns white, blue dot disappears
+4. Unread count in header decreases by 1
+5. Click "✓ Mark All Read" button
+6. Expected: All remaining unread notifications marked as read
+
+--- TEST 2.16: Analytics & KPI ---
+1. Sidebar → Analytics & KPI
+2. Stats cards show totals (totalKpis, totalReports, Global Reports, Protocol Reports)
+3. Click "+ New KPI Report"
+4. Fill in:
+     Report Name   : Q1 Enrollment Rate
+     Scope         : GLOBAL
+     Metric Name   : Patient Enrollment Rate
+     Metric Value  : 87.5
+     Unit          : %
+     Generated Date: 2025-03-31
+5. Click Save
+6. Expected: Row appears with GLOBAL badge (blue)
+
+Create second KPI:
+     Report Name   : Trial Phase Completion
+     Scope         : PROTOCOL
+     Metric Name   : Phase II Completion
+     Metric Value  : 64
+     Unit          : %
+     Generated Date: 2025-03-31
+
+--- TEST 2.17: Compliance Reports ---
+1. Sidebar → Compliance Reports
+2. Stats cards show report counts
+3. Click "⚡ Auto-Generate" button
+4. Expected: New report appears with:
+     Scope       : GLOBAL
+     Generated By: AUTO
+     Date        : today's date
+5. Click "+ New Report"
+6. Fill in:
+     Scope         : PROTOCOL
+     Generated By  : Dr. Sharma
+     Generated Date: 2025-03-31
+7. Click Save
+8. Expected: Second row appears with PROTOCOL badge
+
+--- TEST 2.18: Audit Logs ---
+1. Sidebar → Audit Logs
+2. Table should now have entries (from all the CREATE/UPDATE operations above)
+3. If empty: The MySQL ALTER TABLE fix was not run. Run:
+     ALTER TABLE biotrack_compliance.audit_logs MODIFY COLUMN user_id BIGINT NULL;
+   Then restart compliance-service and repeat steps 2.2–2.16
+
+4. Filter by Action: select "CREATE" from dropdown
+5. Expected: Only CREATE entries visible
+6. Filter by User ID: enter 1
+7. Click "🔍 Filter"
+8. Expected: Only logs for user #1
+9. Click "Clear" → all logs return
+
+--- TEST 2.19: Sania Agarwal Management Actions ---
+1. Sidebar → Users
+2. Find "Malhar Khatua" → Click 🔒 (toggle status)
+3. Expected: Status changes from ACTIVE → INACTIVE (red badge)
+4. Click 🔓 → Expected: Status back to ACTIVE
+5. Click 🔑 (reset password) on any user
+6. Enter new password: "newpass123"
+7. Click Reset → Expected: Success
+8. Click 🗑️ on any non-critical user
+9. Confirm deletion → Expected: User removed from table
+
+
+================================================================================
+  PHASE 3 — CLINICAL TRIAL MANAGER TESTING
+================================================================================
+
+STEP: Logout and Login as CTM
+1. Scroll to bottom of sidebar
+2. Click "🚪 Sign Out"
+3. Expected: Redirected to /login
+4. Login: nagikusa050@gmail.com / password
+5. Expected: Redirected to /dashboard
+
+--- TEST 3.1: Sidebar Visibility (CTM) ---
+Expected visible menu items:
+  ✅ Dashboard
+  ✅ Patients
+  ✅ Visits
+  ✅ Protocols
+  ✅ Sites
+  ✅ Notifications
+  ❌ Users (hidden)
+  ❌ Samples (hidden)
+  ❌ Lab Results (hidden)
+  ❌ Analytics & KPI (hidden)
+  ❌ Audit Logs (hidden)
+  ❌ Compliance Reports (hidden)
+
+--- TEST 3.2: Dashboard (CTM) ---
+1. Stats cards visible: Patients, Protocols, Sites
+2. Quick Actions: "Enroll Patient", "Create Protocol", "Notifications"
+3. No "Add Sample", "View Analytics", "Generate Report" buttons
+
+--- TEST 3.3: Try Accessing Blocked Pages (CTM) ---
+1. Manually type in browser: http://localhost:3000/users
+   Expected: Redirected to /dashboard (403 redirect in PrivateRoute)
+2. Try: http://localhost:3000/samples
+   Expected: Redirected to /dashboard
+3. Try: http://localhost:3000/analytics
+   Expected: Redirected to /dashboard
+4. Try: http://localhost:3000/audit-logs
+   Expected: Redirected to /dashboard
+
+--- TEST 3.4: CTM Full CRUD on Patients ---
+1. Go to Patients → all previously enrolled patients visible
+2. Click "+ Enroll Patient"
+3. Fill in new patient and save
+4. Expected: 201 Created, row appears
+5. Edit existing patient → save → Expected: 200 OK
+6. Change enrollment status dropdown → Expected: updates
+
+--- TEST 3.5: CTM Protocol Access ---
+1. Go to Protocols → both protocols visible
+2. Can create, edit protocols
+3. Can assign sites to protocols
+4. Can change phase via dropdown
+5. Cannot DELETE (🗑️ button not visible — Admin only)
+6. Cannot close protocol with 🔒 (Admin only)
+
+--- TEST 3.6: CTM Sites Access ---
+1. Go to Sites → both sites visible
+2. Can create, edit sites
+3. Can change site status dropdown
+4. Cannot delete sites (🗑️ not visible)
+
+--- TEST 3.7: CTM Notifications ---
+1. Go to Notifications → can see all notifications
+2. Can send new notifications
+3. Can dispatch notifications
+4. Can mark as read
+
+
+================================================================================
+  PHASE 4 — LAB TECHNICIAN TESTING
+================================================================================
+
+Logout → Login: mallharkhatua@gmail.com / password
+
+--- TEST 4.1: Sidebar Visibility (Lab Technician) ---
+Expected visible:
+  ✅ Dashboard
+  ✅ Samples
+  ✅ Lab Results
+  ✅ Notifications
+  ❌ Users, Patients, Visits, Protocols, Sites, Analytics, Audit Logs, Compliance
+
+--- TEST 4.2: Dashboard (Lab Tech) ---
+1. Stats cards: Only "Samples" visible
+2. Quick Actions: Only "Add Sample" and "Notifications" buttons
+
+--- TEST 4.3: Try Accessing Blocked Pages (Lab Tech) ---
+1. Type: http://localhost:3000/patients → Expected: redirect to /dashboard
+2. Type: http://localhost:3000/protocols → Expected: redirect to /dashboard
+3. Type: http://localhost:3000/compliance-reports → Expected: redirect to /dashboard
+
+--- TEST 4.4: Lab Tech Samples CRUD ---
+1. Go to Samples → all samples visible
+2. Click "+ Add Sample" → create new sample → Expected: success
+3. Edit sample → Expected: success
+4. Change status via dropdown → Expected: updates
+5. Click ♻️ Dispose → Expected: status → DISPOSED
+6. Delete button (🗑️) NOT visible (Admin only) ✅
+
+--- TEST 4.5: Lab Tech Lab Results ---
+1. Go to Lab Results → all results visible
+2. Click "+ Add Result" → create new result → Expected: success
+3. Edit result → Expected: success
+4. Delete button NOT visible ✅
+
+--- TEST 4.6: Lab Tech Notifications ---
+1. Go to Notifications
+2. Notifications sent to this user are visible
+3. Can mark as read
+4. Cannot delete notifications (🗑️ not visible) ✅
+5. Cannot send new notifications (+ button NOT visible) ✅
+
+
+================================================================================
+  PHASE 5 — RESEARCH SCIENTIST TESTING
+================================================================================
+
+Logout → Login: chaurasianikita984@gmail.com / password
+
+--- TEST 5.1: Sidebar Visibility (Research Scientist) ---
+Expected visible:
+  ✅ Dashboard
+  ✅ Protocols
+  ✅ Sites
+  ✅ Notifications
+  ❌ All others hidden
+
+--- TEST 5.2: Research Scientist Protocol Access (Read + Limited Write) ---
+1. Go to Protocols → protocols visible
+2. Cannot CREATE protocols (no "+ New Protocol" button) ✅
+   Wait — RS has access to protocol page but cannot write (only CTM/ADMIN can write)
+   The "+ New Protocol" button should NOT appear for RS
+3. Edit (✏️) button also hidden for RS ✅
+4. Assign site (🏛️) button hidden ✅
+5. Phase dropdown hidden ✅
+   RS can only VIEW — no edit controls visible
+
+--- TEST 5.3: Research Scientist Sites ---
+1. Go to Sites → sites visible
+2. No create/edit/delete buttons visible (read-only) ✅
+3. Can filter by Protocol ID → Expected: sites returned
+
+--- TEST 5.4: Research Scientist Notifications ---
+1. Go to Notifications → own notifications visible
+2. Can mark as read
+3. Cannot send notifications ✅
+
+
+================================================================================
+  PHASE 6 — DATA MANAGER TESTING
+================================================================================
+
+Logout → Login: prateekbora71@gmail.com / password
+
+--- TEST 6.1: Sidebar Visibility (Data Manager) ---
+Expected visible:
+  ✅ Dashboard
+  ✅ Analytics & KPI
+  ❌ All others hidden
+
+--- TEST 6.2: Dashboard (Data Manager) ---
+1. Stats cards: Only "KPI Reports" visible
+2. Quick Actions: Only "View Analytics" button
+
+--- TEST 6.3: Data Manager Analytics CRUD ---
+1. Go to Analytics & KPI
+2. Dashboard stats cards show totals
+3. KPI reports table loaded
+4. Click "+ New KPI Report" → create → Expected: success
+5. Edit → Expected: success
+6. Delete button visible (🗑️) — Data Manager is allowed + Admin ✅
+   Wait — in backend DELETE requires ADMIN only.
+   In frontend, 🗑️ button is shown only for hasRole('ADMIN') → NOT visible for DM ✅
+
+--- TEST 6.4: Data Manager Blocked Pages ---
+1. Type: http://localhost:3000/patients → redirect to /dashboard ✅
+2. Type: http://localhost:3000/samples → redirect to /dashboard ✅
+3. Type: http://localhost:3000/audit-logs → redirect to /dashboard ✅
+
+
+================================================================================
+  PHASE 7 — REGULATORY OFFICER TESTING
+================================================================================
+
+Logout → Login: snehithapriscillaganta7890@gmail.com / password
+
+--- TEST 7.1: Sidebar Visibility (Regulatory Officer) ---
+Expected visible:
+  ✅ Dashboard
+  ✅ Audit Logs
+  ✅ Compliance Reports
+  ❌ All others hidden
+
+--- TEST 7.2: Dashboard (Reg Officer) ---
+1. Stats cards: Only "Audit Logs" visible
+2. Quick Actions: "Generate Report" button
+
+--- TEST 7.3: Reg Officer Audit Logs ---
+1. Go to Audit Logs
+2. All audit log entries visible
+3. Can filter by action type and user ID
+4. No edit/delete buttons (read-only for Reg Officer) ✅
+
+--- TEST 7.4: Reg Officer Compliance Reports ---
+1. Go to Compliance Reports
+2. Stats cards show counts
+3. Click "⚡ Auto-Generate" → Expected: new AUTO report created
+4. Click "+ New Report" → fill in and save → Expected: success
+5. Edit existing report → Expected: success
+6. Delete button NOT visible for Reg Officer (Admin only) ✅
+
+--- TEST 7.5: Reg Officer Blocked Pages ---
+1. Type: http://localhost:3000/patients → redirect ✅
+2. Type: http://localhost:3000/samples → redirect ✅
+3. Type: http://localhost:3000/analytics → redirect ✅
+4. Type: http://localhost:3000/notifications → redirect ✅
+
+
+================================================================================
+  PHASE 8 — SECURITY VALIDATION TESTS
+================================================================================
+
+These tests verify that the backend properly rejects unauthorized requests.
+Test these using the Network tab in browser DevTools (F12).
+
+--- TEST 8.1: Cross-Role API Blocking ---
+While logged in as LAB_TECHNICIAN (mallharkhatua@gmail.com):
+
+1. Open DevTools → Network tab
+2. In browser console, run:
+   fetch('/api/v1/patients', {
+     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('biotrack_token') }
+   }).then(r => console.log('Status:', r.status))
+   Expected output: Status: 403
+
+3. Try patients POST:
+   fetch('/api/v1/patients', {
+     method: 'POST',
+     headers: {
+       'Authorization': 'Bearer ' + localStorage.getItem('biotrack_token'),
+       'Content-Type': 'application/json'
+     },
+     body: JSON.stringify({ firstName: 'Hacker', lastName: 'Test' })
+   }).then(r => console.log('Status:', r.status))
+   Expected output: Status: 403
+
+--- TEST 8.2: No Token = 401 ---
+1. Open a new incognito browser tab
+2. Run in console:
+   fetch('http://localhost:8778/api/v1/patients')
+     .then(r => console.log('Status:', r.status))
+   Expected: Status: 401
+
+--- TEST 8.3: Data Manager Cannot Access Protocol ---
+Login as prateekbora71@gmail.com, then in console:
+   fetch('/api/v1/protocols', {
+     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('biotrack_token') }
+   }).then(r => console.log('Status:', r.status))
+   Expected: Status: 403
+
+--- TEST 8.4: Regulatory Officer Cannot Access Samples ---
+Login as snehithapriscillaganta7890@gmail.com, then in console:
+   fetch('/api/v1/samples', {
+     headers: { 'Authorization': 'Bearer ' + localStorage.getItem('biotrack_token') }
+   }).then(r => console.log('Status:', r.status))
+   Expected: Status: 403
+
+--- TEST 8.5: Token Expiry Handling ---
+1. Manually corrupt the token in localStorage:
+   localStorage.setItem('biotrack_token', 'invalid.token.here')
+2. Refresh the page
+3. Expected: Redirected to /login automatically (401 interceptor triggered)
+
+
+================================================================================
+  PHASE 9 — FULL WORKFLOW END-TO-END TEST (Admin)
+================================================================================
+
+Login as: agarwalsania2004@gmail.com / password
+
+Complete the following sequence to simulate a real clinical trial workflow:
+
+STEP 1:  Create Protocol    → "HIV Vaccine Study"  PHASE_I  2025-01-01 to 2027-12-31
+STEP 2:  Create Site        → "Chennai Medical Hub"  Chennai  DR-003  ACTIVE
+STEP 3:  Assign Site        → Assign Chennai site to HIV Vaccine Study
+STEP 4:  Verify Sites filter → Go to Sites, filter by HIV Vaccine Study protocolId → Chennai appears
+STEP 5:  Enroll Patient     → "Priya Patel"  DOB:1992-08-10  FEMALE  Protocol+Site above  SCREENING
+STEP 6:  Change Patient Status → SCREENING → ENROLLED
+STEP 7:  Schedule Visit     → Patient Priya, BASELINE, today's date, SCHEDULED
+STEP 8:  Collect Sample     → Patient Priya, Protocol, BLOOD, today, Storage: Lab Freezer 1, COLLECTED
+STEP 9:  Update Sample      → Status COLLECTED → RECEIVED → PROCESSING
+STEP 10: Add Lab Result     → Sample above, "Viral Load", "< 50", copies/mL, COMPLETED
+STEP 11: Send Notification  → To Lab Tech user, ALERT, "New sample ready for analysis"
+STEP 12: Create KPI Report  → Scope PROTOCOL, "Enrollment Rate", "100", "%"
+STEP 13: Generate Compliance Report → Click Auto-Generate
+STEP 14: Check Audit Logs  → All above actions should appear as audit entries
+STEP 15: Close Protocol    → Go to Protocols → click 🔒 on HIV Vaccine Study
+         Expected: Status changes to CLOSED
+
+Verify: Audit Logs page should show 10+ entries with various CREATE/UPDATE actions.
+
+
+================================================================================
+  PHASE 10 — UI/UX VALIDATION
+================================================================================
+
+--- TEST 10.1: Search Functionality ---
+1. Go to Patients → type "Jane" in search box
+   Expected: Only Jane Smith visible
+2. Clear search → all patients visible
+3. Go to Samples → type "BLOOD"
+   Expected: Only blood samples visible
+4. Go to Users → type "ADMIN"
+   Expected: Only admin role users visible
+
+--- TEST 10.2: Empty States ---
+1. Search for something that doesn't exist (e.g., "zzznomatch")
+   Expected: Shows empty state icon with message "No [items] found"
+
+--- TEST 10.3: Form Validation ---
+1. Try saving a Patient with empty First Name
+   Expected: Backend returns error, displayed as red alert box in modal
+2. Try saving a Protocol with no title
+   Expected: Error alert shown
+
+--- TEST 10.4: Loading States ---
+1. Open DevTools → Network tab → set throttling to "Slow 3G"
+2. Navigate to Patients page
+   Expected: Spinner shows while loading, then data appears
+3. Reset throttling to No throttle
+
+--- TEST 10.5: Modal Close Behavior ---
+1. Open any "+ Add" modal
+2. Click outside the modal (on the dark overlay)
+   Expected: Modal closes without saving
+3. Click Cancel button → modal closes
+4. Press the × button → modal closes
+
+--- TEST 10.6: Notification Tabs ---
+1. Go to Notifications
+2. Click "Unread" tab → only unread notifications shown
+3. Click "Read" tab → only read notifications shown
+4. Click "All" tab → all notifications shown
+
+--- TEST 10.7: Status Toggle Buttons ---
+1. Users page: Click 🔒 to deactivate a user
+   Expected: Badge flips ACTIVE → INACTIVE
+2. Click 🔓 to reactivate
+   Expected: Badge flips back to ACTIVE
+
+--- TEST 10.8: Responsive Navbar Badge ---
+1. After login, top-right of every page shows:
+   "[Role Short Label] · [User Name]"
+   e.g., "CTM · Ayush Ranjan"
+   e.g., "Lab Tech · Malhar Khatua"
+   e.g., "Admin · Sania Agarwal"
+
+
+================================================================================
+  PHASE 11 — AUDIT LOG VERIFICATION
+================================================================================
+
+After completing Phases 2-9, verify audit trail is complete.
+Login as agarwalsania2004@gmail.com → Audit Logs
+
+Expected entries (minimum):
+  Action: CREATE  → Multiple protocol, site, patient, sample, visit, lab result entries
+  Action: UPDATE  → Protocol phase changes, patient status changes, sample status changes
+
+Filter Tests:
+1. Filter by action "CREATE" → shows only create events
+2. Filter by action "UPDATE" → shows only update events
+3. Filter by action "DELETE" → shows delete events
+4. Filter by user ID "1"    → shows only admin's actions
+5. Clear filters             → all entries shown
+
+If audit logs are empty:
+  → MySQL NULL fix was not applied
+  → Run: ALTER TABLE biotrack_compliance.audit_logs MODIFY COLUMN user_id BIGINT NULL;
+  → Restart compliance-service
+  → Repeat all create/update operations
+
+
+================================================================================
+  COMMON ERRORS & FIXES
+================================================================================
+
+ERROR: "Invalid email or password" on login
+FIX  : Check user exists in DB. Register via IAM Swagger if needed.
+
+ERROR: Table shows empty after login
+FIX  : Check backend service is running. Check gateway port 8778 is up.
+       Check browser console for 500/404 errors.
+
+ERROR: 403 Forbidden on all requests after login
+FIX  : Token may be expired (1 hour). Log out and log in again.
+
+ERROR: Audit Logs always empty
+FIX  : Run SQL: ALTER TABLE biotrack_compliance.audit_logs
+              MODIFY COLUMN user_id BIGINT NULL;
+       Then restart compliance-service.
+
+ERROR: Sites by Protocol returns empty
+FIX  : Make sure you've done POST /api/v1/protocols/{id}/sites/{siteId}
+       (Assign Site button in Protocols page) BEFORE filtering.
+
+ERROR: Cannot connect to backend (Network Error)
+FIX  : Ensure gateway is running on port 8778.
+       Ensure frontend vite proxy is running (npm run dev).
+       Check vite.config.js proxy target is http://localhost:8778
+
+ERROR: Page redirects to /dashboard after typing URL
+FIX  : Your current role doesn't have access to that page.
+       This is correct security behavior. Login with appropriate role.
+
+ERROR: Modal doesn't close after save
+FIX  : Backend returned an error — check the red alert box inside the modal.
+
+ERROR: "Failed to save" with no details
+FIX  : Check browser DevTools → Network tab → find the failed request
+       and check the response body for the error message.
+
+
+================================================================================
+  QUICK REFERENCE — URL SUMMARY
+================================================================================
+
+Frontend Pages:
+  /login               → Login page
+  /dashboard           → Home dashboard
+  /users               → User management (ADMIN only)
+  /patients            → Patient management (ADMIN, CTM)
+  /visits              → Visit scheduling (ADMIN, CTM)
+  /protocols           → Protocol management (ADMIN, CTM, RS)
+  /sites               → Site management (ADMIN, CTM, RS)
+  /samples             → Sample tracking (ADMIN, LAB_TECH)
+  /lab-results         → Lab results (ADMIN, LAB_TECH)
+  /notifications       → Notifications (ADMIN, CTM, LAB_TECH, RS)
+  /analytics           → Analytics & KPI (ADMIN, DATA_MANAGER)
+  /audit-logs          → Audit trail (ADMIN, REG_OFFICER)
+  /compliance-reports  → Compliance (ADMIN, REG_OFFICER)
+
+Backend API (via Gateway at :8778):
+  POST   /api/v1/auth/login
+  POST   /api/v1/auth/register
+  GET    /api/v1/auth/me
+  GET    /api/v1/users
+  GET    /api/v1/patients
+  GET    /api/v1/visits
+  GET    /api/v1/protocols
+  GET    /api/v1/sites
+  GET    /api/v1/sites/protocol/{id}
+  GET    /api/v1/samples
+  GET    /api/v1/lab-results
+  GET    /api/v1/notifications
+  GET    /api/v1/analytics/kpi-reports
+  GET    /api/v1/audit-logs
+  GET    /api/v1/compliance-reports
+  POST   /api/v1/compliance-reports/generate
+
+
+================================================================================
+  TEST ACCOUNTS SUMMARY
+================================================================================
+
+  Role                    | Email                      | Password
+  ------------------------|----------------------------|----------
+  ADMIN                   | agarwalsania2004@gmail.com         | password
+  CLINICAL_TRIAL_MANAGER  | nagikusa050@gmail.com           | password
+  LAB_TECHNICIAN          | mallharkhatua@gmail.com       | password
+  RESEARCH_SCIENTIST      | chaurasianikita984@gmail.com    | password
+  DATA_MANAGER            | prateekbora71@gmail.com   | password
+  REGULATORY_OFFICER      | snehithapriscillaganta7890@gmail.com    | password
+
+
+================================================================================
+  END OF TESTING GUIDE
+  BioTrack Platform — Frontend Testing v1.0
+================================================================================

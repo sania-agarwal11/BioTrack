@@ -1,0 +1,18 @@
+import api from './axios'
+
+export const getNotifications = () => api.get('/notifications')
+export const getNotificationById = (id) => api.get(`/notifications/${id}`)
+export const createNotification = (data) => api.post('/notifications', data)
+export const updateNotification = (id, data) => api.put(`/notifications/${id}`, data)
+export const deleteNotification = (id) => api.delete(`/notifications/${id}`)
+export const getNotificationsByUser = (userId) => api.get(`/notifications/user/${userId}`)
+export const getUnreadCount = (userId) => api.get(`/notifications/user/${userId}/unread`)
+export const markAsRead = (id) => api.put(`/notifications/${id}/read`)
+export const markAsUnread = (id) => api.put(`/notifications/${id}/unread`)
+export const archiveNotification = (id) => api.put(`/notifications/${id}/archive`)
+export const markAllAsRead = (userId) => api.put(`/notifications/user/${userId}/read-all`)
+export const dispatchNotification = (data) => api.post('/notifications/dispatch', data)
+export const updatePreferences = () => api.post('/notifications/preferences')
+export const getDeletedNotifications = () => api.get('/notifications/deleted')
+export const getDeletedNotificationsByUser = (userId) => api.get(`/notifications/user/${userId}/deleted`, { skipAuthRedirect: true })
+export const restoreNotification = (id) => api.put(`/notifications/${id}/restore`)

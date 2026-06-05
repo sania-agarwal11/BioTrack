@@ -1,0 +1,7 @@
+2026-06-05 01:08:07.230  WARN 15560 --- [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=7h30m8s765ms189µs100ns).
+2026-06-05 09:03:31.757  WARN 15560 --- [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=7h55m27s734ms940µs200ns).
+2026-06-05 09:20:26.371  WARN 15560 --- [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=7m24s461ms92µs700ns).
+2026-06-05 09:33:46.968  WARN 15560 --- [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=9m50s555ms350µs).
+2026-06-05 09:44:40.322  WARN 15560 --- [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=10m53s354ms343µs600ns).
+2026-06-05 09:58:58.671  WARN 15560 --- [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=9m18s271ms908µs700ns).
+2026-06-05 14:32:42.766  WARN 15560 --- [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=4h12m13s814ms847µs200ns).

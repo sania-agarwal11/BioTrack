@@ -1,0 +1,82 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: iam-service
+
+  # ── Database ──────────────────────────────────────────────────────────────
+  datasource:
+    url: jdbc:mysql://localhost:3306/biotrack_iam
+    username: root
+    password: Sania@2611
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  # ── Email (Gmail SMTP) ────────────────────────────────────────────────────
+  mail:
+    host: smtp.gmail.com
+    port: 465
+    username: agarwalsania2004@gmail.com
+    password: kkrxrfxoepzxkqcn
+    protocol: smtps
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+            trust: smtp.gmail.com
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+        debug: true    # ← shows detailed SMTP log in console for debugging
+
+# ── Eureka ────────────────────────────────────────────────────────────────────
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# ── JWT ───────────────────────────────────────────────────────────────────────
+jwt:
+  secret: biotrackSecretKey2024ForJwtTokenSigningAndValidation
+  expiration-ms: 28800000   # 8 hours (8 × 60 × 60 × 1000)
+
+# ── OTP ───────────────────────────────────────────────────────────────────────
+otp:
+  expiry-minutes: 10
+
+# ── Compliance Service (for login/logout audit) ───────────────────────────────
+compliance:
+  service:
+    url: http://localhost:8085
+
+# ── Notifications Service (for admin registration alerts) ─────────────────────
+notifications:
+  service:
+    url: http://localhost:8084
+
+# ── Admin email (receives new registration notifications) ─────────────────────
+admin:
+  email: agarwalsania2004@gmail.com
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  config: classpath:logback-spring.xml
+  level:
+    root: INFO
+    com.biotrack: DEBUG
+    org.springframework.security: WARN
+    org.springframework.web: INFO
+    org.springframework.mail: INFO
+    org.hibernate.SQL: WARN
+    com.netflix: WARN

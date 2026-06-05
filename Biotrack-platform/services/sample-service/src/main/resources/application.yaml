@@ -1,0 +1,56 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: sample-service
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/biotrack_sample
+    username: root
+    password: Sania@2611
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+
+jwt:
+  secret: biotrackSecretKey2024ForJwtTokenSigningAndValidation
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}   # ✅ unique instance ID
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  config: classpath:logback-spring.xml
+  level:
+    root: INFO
+    com.biotrack: DEBUG
+    org.springframework.security: WARN
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG                               # SQL statements logged for lab data tracing
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE  # SQL parameter bindings logged
+    com.netflix: WARN
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html   # ✅ Swagger UI available at /swagger-ui.html
+
+

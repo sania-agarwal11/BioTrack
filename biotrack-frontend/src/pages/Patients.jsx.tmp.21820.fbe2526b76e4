@@ -1,0 +1,150 @@
+import { useEffect, useState } from 'react'
+import Navbar from '../components/Navbar'
+import Modal from '../components/Modal'
+import { getPatients, createPatient, updatePatient, deletePatient, updateEnrollmentStatus } from '../api/patients'
+
+const STATUSES = ['ENROLLED', 'SCREENING', 'COMPLETED', 'WITHDRAWN', 'PENDING']
+const emptyForm = { name: '', dateOfBirth: '', gender: '', contactInfo: '', enrollmentStatus: 'SCREENING', protocolId: '', siteId: '' }
+
+export default function Patients() {
+  const [patients, setPatients] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState(emptyForm)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = () => {
+    setLoading(true)
+    getPatients().then(r => setPatients(r.data)).catch(() => setPatients([])).finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, [])
+
+  const openCreate = () => { setEditing(null); setForm(emptyForm); setError(''); setShowModal(true) }
+  const openEdit = (p) => {
+    setEditing(p)
+    setForm({
+      name: p.name || '',
+      dateOfBirth: p.dateOfBirth || '',
+      gender: p.gender || '',
+      contactInfo: p.contactInfo || '',
+      enrollmentStatus: p.enrollmentStatus || 'SCREENING',
+      protocolId: p.protocolId || '',
+      siteId: p.siteId || '',
+    })
+    setError('')
+    setShowModal(true)
+  }
+
+  const handleSave = async () => {
+    setSaving(true); setError('')
+    try {
+      const payload = { ...form, protocolId: form.protocolId ? Number(form.protocolId) : null, siteId: form.siteId ? Number(form.siteId) : null }
+      if (editing) await updatePatient(editing.patientId, payload)
+      else await createPatient(payload)
+      setShowModal(false); load()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save patient.')
+    } finally { setSaving(false) }
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this patient?')) return
+    await deletePatient(id).catch(() => {})
+    load()
+  }
+
+  const handleStatus = async (id, status) => {
+    await updateEnrollmentStatus(id, status).catch(() => {})
+    load()
+  }
+
+  const filtered = patients.filter(p =>
+    p.name?.toLowerCase().includes(search.toLowerCase()) ||
+    p.enrollmentStatus?.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const statusBadge = (s) => {
+    const map = { ENROLLED: 'badge-success', SCREENING: 'badge-warning', COMPLETED: 'badge-primary', WITHDRAWN: 'badge-danger', PENDING: 'badge-secondary' }
+    return <span className={`badge ${map[s] || 'badge-secondary'}`}>{s}</span>
+  }
+
+  return (
+    <>
+      <Navbar title="Patient Management" />
+      <div className="page-content">
+        <div className="page-header"><h2>Patients</h2><p>Manage clinical trial patient enrollment</p></div>
+        <div className="card">
+          <div className="card-header">
+            <div className="toolbar">
+              <input className="search-input" placeholder="Search patients..." value={search} onChange={e => setSearch(e.target.value)} />
+              <span style={{ color: '#64748b', fontSize: '13px' }}>{filtered.length} patients</span>
+            </div>
+            <button className="btn btn-primary" onClick={openCreate}>+ Enroll Patient</button>
+          </div>
+          {loading ? <div className="loading"><div className="spinner" />Loading...</div> :
+           filtered.length === 0 ? <div className="empty-state"><div className="icon">🏥</div><h3>No patients found</h3><p>Enroll your first patient to get started.</p></div> :
+          <div className="table-container">
+            <table>
+              <thead><tr><th>Name</th><th>Date of Birth</th><th>Gender</th><th>Contact</th><th>Status</th><th>Protocol</th><th>Site</th><th>Actions</th></tr></thead>
+              <tbody>
+                {filtered.map(p => (
+                  <tr key={p.patientId}>
+                    <td><strong>{p.name}</strong></td>
+                    <td>{p.dateOfBirth || '—'}</td>
+                    <td>{p.gender || '—'}</td>
+                    <td>{p.contactInfo || '—'}</td>
+                    <td>{statusBadge(p.enrollmentStatus)}</td>
+                    <td>{p.protocolId || '—'}</td>
+                    <td>{p.siteId || '—'}</td>
+                    <td>
+                      <div className="actions">
+                        <button className="btn btn-icon btn-sm" onClick={() => openEdit(p)}>✏️</button>
+                        <select className="form-control" style={{ padding: '4px 6px', fontSize: '12px', width: 'auto' }}
+                          value={p.enrollmentStatus}
+                          onChange={e => handleStatus(p.patientId, e.target.value)}>
+                          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <button className="btn btn-icon btn-sm" onClick={() => handleDelete(p.patientId)}>🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>}
+        </div>
+      </div>
+
+      {showModal && (
+        <Modal title={editing ? 'Edit Patient' : 'Enroll Patient'} onClose={() => setShowModal(false)} onSubmit={handleSave} loading={saving}>
+          {error && <div className="alert alert-danger">{error}</div>}
+          <div className="form-row">
+            <div className="form-group"><label>Full Name *</label><input className="form-control" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Patient name" /></div>
+            <div className="form-group"><label>Date of Birth</label><input className="form-control" type="date" value={form.dateOfBirth} onChange={e => setForm({ ...form, dateOfBirth: e.target.value })} /></div>
+          </div>
+          <div className="form-row">
+            <div className="form-group"><label>Gender</label>
+              <select className="form-control" value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
+                <option value="">Select</option><option>MALE</option><option>FEMALE</option><option>OTHER</option>
+              </select>
+            </div>
+            <div className="form-group"><label>Enrollment Status</label>
+              <select className="form-control" value={form.enrollmentStatus} onChange={e => setForm({ ...form, enrollmentStatus: e.target.value })}>
+                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group"><label>Protocol ID</label><input className="form-control" type="number" value={form.protocolId} onChange={e => setForm({ ...form, protocolId: e.target.value })} placeholder="e.g. 1" /></div>
+            <div className="form-group"><label>Site ID</label><input className="form-control" type="number" value={form.siteId} onChange={e => setForm({ ...form, siteId: e.target.value })} placeholder="e.g. 1" /></div>
+          </div>
+          <div className="form-group"><label>Contact Info</label><input className="form-control" value={form.contactInfo} onChange={e => setForm({ ...form, contactInfo: e.target.value })} placeholder="Phone or email" /></div>
+        </Modal>
+      )}
+    </>
+  )
+}

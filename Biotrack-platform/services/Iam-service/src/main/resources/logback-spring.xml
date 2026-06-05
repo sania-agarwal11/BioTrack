@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- ── Register Spring Boot colour + exception converters ────────────────── -->
+    <!-- Required when using a custom logback-spring.xml (not auto-registered)   -->
+    <conversionRule conversionWord="clr"
+                    converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
+    <conversionRule conversionWord="wEx"
+                    converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter"/>
+
+    <!-- ── Read service name from Spring application context ────────────────── -->
+    <springProperty scope="context" name="APP_NAME"
+                    source="spring.application.name"
+                    defaultValue="biotrack-service"/>
+
+    <!-- ── Directory / file paths ────────────────────────────────────────────── -->
+    <property name="LOG_DIR"     value="logs"/>
+    <property name="ARCHIVE_DIR" value="logs/archived"/>
+    <property name="LOG_FILE"    value="${LOG_DIR}/${APP_NAME}.log"/>
+
+    <!-- ── Log patterns ──────────────────────────────────────────────────────── -->
+    <!-- Console: coloured (Spring Boot style) -->
+    <property name="CONSOLE_PATTERN"
+              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"/>
+    <!-- File: plain text, no ANSI escape codes -->
+    <property name="FILE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%n%wEx"/>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         APPENDERS
+         ──────────────────────────────────────────────────────────────────────── -->
+
+    <!-- Console appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Rolling file appender: daily roll + 10 MB size limit -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}</file>
+        <encoder>
+            <pattern>${FILE_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${ARCHIVE_DIR}/${APP_NAME}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Async wrapper — prevents file I/O from blocking request threads -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="FILE"/>
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>false</includeCallerData>
+    </appender>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         LOGGER CONFIGURATION
+         ──────────────────────────────────────────────────────────────────────── -->
+
+    <!-- BioTrack application code — DEBUG so every service method is traced -->
+    <logger name="com.biotrack" level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <!-- Spring Security — WARN only (too noisy at DEBUG) -->
+    <logger name="org.springframework.security"              level="WARN"/>
+
+    <!-- Spring Web / MVC -->
+    <logger name="org.springframework.web"                   level="INFO"/>
+
+    <!-- Hibernate / JPA — suppress SQL by default -->
+    <logger name="org.hibernate.SQL"                         level="WARN"/>
+    <logger name="org.hibernate.type.descriptor.sql"         level="WARN"/>
+    <logger name="org.hibernate.orm.connections.pooling"     level="WARN"/>
+
+    <!-- Eureka / Netflix OSS — suppress chatty heartbeat logs -->
+    <logger name="com.netflix.eureka"                        level="WARN"/>
+    <logger name="com.netflix.discovery"                     level="WARN"/>
+    <logger name="com.sun.jersey"                            level="WARN"/>
+
+    <!-- Spring Cloud -->
+    <logger name="org.springframework.cloud"                 level="WARN"/>
+
+    <!-- Apache HTTP client -->
+    <logger name="org.apache.http"                           level="WARN"/>
+
+    <!-- Mail / SMTP — INFO so OTP sending is logged, but suppress raw SMTP debug -->
+    <logger name="org.springframework.mail"                  level="INFO"/>
+    <logger name="jakarta.mail"                              level="WARN"/>
+    <logger name="com.sun.mail"                              level="WARN"/>
+
+    <!-- JWT processing -->
+    <logger name="io.jsonwebtoken"                           level="WARN"/>
+
+    <!-- ────────────────────────────────────────────────────────────────────────
+         ROOT LOGGER
+         ──────────────────────────────────────────────────────────────────────── -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </root>
+
+</configuration>
