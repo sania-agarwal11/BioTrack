@@ -8,8 +8,8 @@ spring:
   # ── Database ──────────────────────────────────────────────────────────────
   datasource:
     url: jdbc:mysql://localhost:3306/biotrack_iam
-    username: root
-    password: Sania@2611
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -23,8 +23,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 465
-    username: agarwalsania2004@gmail.com
-    password: kkrxrfxoepzxkqcn
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     protocol: smtps
     properties:
       mail:
@@ -48,7 +48,7 @@ eureka:
 
 # ── JWT ───────────────────────────────────────────────────────────────────────
 jwt:
-  secret: biotrackSecretKey2024ForJwtTokenSigningAndValidation
+  secret: ${JWT_SECRET}
   expiration-ms: 28800000   # 8 hours (8 × 60 × 60 × 1000)
 
 # ── OTP ───────────────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ notifications:
 
 # ── Admin email (receives new registration notifications) ─────────────────────
 admin:
-  email: agarwalsania2004@gmail.com
+  email:  ${Admin_MAIL_USERNAME}
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging:
