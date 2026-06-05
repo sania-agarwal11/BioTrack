@@ -6,8 +6,8 @@ spring:
     name: notifications-service
   datasource:
     url: jdbc:mysql://localhost:3306/biotrack_notifications
-    username: root
-    password: Sania@2611
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -20,8 +20,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: agarwalsania2004@gmail.com      # TODO: replace with actual Gmail address
-    password: kkrxrfxoepzxkqcn       # TODO: replace with Gmail App Password (not account password)
+    username:  ${MAIL_USERNAME}     # TODO: replace with actual Gmail address
+    password: ${MAIL_PASSWORD}      # TODO: replace with Gmail App Password (not account password)
     properties:
       mail:
         smtp:
@@ -39,7 +39,7 @@ eureka:
     prefer-ip-address: true
 
 jwt:
-  secret: biotrackSecretKey2024ForJwtTokenSigningAndValidation
+  secret: ${JWT_SECRET}
 
 springdoc:
   swagger-ui:
